@@ -1,0 +1,692 @@
+<title>Al-Baha Maintenance Platform</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+/* Layout: fixed left nav (collapses to a top strip on phones), top bar with "acting as" role switch, one view at a time */
+:root {
+  --bg: #eef1f4; --surface: #ffffff; --sunken: #f5f7f9; --ink: #16212b; --muted: #5d6b78; --line: #d5dce3;
+  --accent: #155e9c; --accent-soft: #dcebf8; --on-accent: #ffffff; --nav: #10243a; --nav-ink: #c9d6e3; --nav-active: #1b3a5c;
+  --good: #1b7f4b; --good-soft: #dcf3e5; --warn: #a66a00; --warn-soft: #fbefd4; --crit: #b9312b; --crit-soft: #fae1df;
+  --mech: #155e9c; --elec: #b9312b; --inst: #a66a00;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --f-mono: "IBM Plex Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1419; --surface: #161e26; --sunken: #111820; --ink: #e3e9ef; --muted: #93a2b1; --line: #27323d;
+  --accent: #4f9ee0; --accent-soft: #15314a; --on-accent: #06182a; --nav: #0a1118; --nav-ink: #9fb0c0; --nav-active: #1b3a5c;
+  --good: #5fcf8e; --good-soft: #143322; --warn: #e5b14f; --warn-soft: #362a10; --crit: #f0776d; --crit-soft: #3b1a17;
+  --mech: #4f9ee0; --elec: #f0776d; --inst: #e5b14f; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1419; --surface: #161e26; --sunken: #111820; --ink: #e3e9ef; --muted: #93a2b1; --line: #27323d;
+  --accent: #4f9ee0; --accent-soft: #15314a; --on-accent: #06182a; --nav: #0a1118; --nav-ink: #9fb0c0; --nav-active: #1b3a5c;
+  --good: #5fcf8e; --good-soft: #143322; --warn: #e5b14f; --warn-soft: #362a10; --crit: #f0776d; --crit-soft: #3b1a17;
+  --mech: #4f9ee0; --elec: #f0776d; --inst: #e5b14f; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); letter-spacing: .02em; }
+.num { font-variant-numeric: tabular-nums; }
+
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100%; }
+nav.side { background: var(--nav); color: var(--nav-ink); padding-block: 18px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 12px; display: flex; flex-direction: column; gap: 4px; }
+.brand { color: #fff; font-weight: 700; font-size: 15px; line-height: 1.2; margin-bottom: 4px; }
+.brand small { display: block; font-weight: 400; color: var(--nav-ink); font-size: 11px; margin-top: 2px; }
+.demo-tag { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #ffd36b; margin-bottom: 14px; }
+nav.side a { color: inherit; text-decoration: none; padding: 9px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 500; }
+nav.side a[aria-current="page"] { background: var(--nav-active); color: #fff; }
+nav.side a .badge { background: var(--crit); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 7px; min-width: 20px; text-align: center; }
+main { padding-block: 16px 48px; padding-left: 24px; padding-right: max(16px, env(safe-area-inset-right, 0px)); min-width: 0; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-bottom: 18px; }
+.topbar h1 { font-size: 20px; }
+.acting { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.acting label { font-size: 12px; color: var(--muted); }
+.acting select { border: 0; background: transparent; font-weight: 600; max-width: 260px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.grid { display: grid; gap: 14px; }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.kpi .v { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.kpi .k { font-size: 12px; color: var(--muted); }
+.kpi .d { font-size: 12px; margin-top: 4px; }
+.kpi.crit .v { color: var(--crit); } .kpi.warn .v { color: var(--warn); } .kpi.good .v { color: var(--good); }
+.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card h3 { font-size: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h3 span { font-weight: 400; color: var(--muted); font-size: 12px; }
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar { display: grid; grid-template-columns: 140px minmax(0, 1fr) 36px; align-items: center; gap: 10px; font-size: 13px; }
+.bar i { display: block; height: 10px; border-radius: 5px; background: var(--accent); }
+.bar b { text-align: right; font-weight: 600; }
+.disc { border-top: 4px solid var(--line); }
+.disc[data-s="Mechanical"] { border-top-color: var(--mech); } .disc[data-s="Electrical"] { border-top-color: var(--elec); } .disc[data-s="Instrumentation"] { border-top-color: var(--inst); }
+.disc .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+.disc .row .v { font-weight: 700; font-size: 18px; } .disc .row .k { font-size: 11px; color: var(--muted); }
+.disc .pm { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.disc .pm i { flex: 1; height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; display: block; } .disc .pm i b { display: block; height: 100%; background: var(--good); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; background: var(--sunken); color: var(--muted); }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--good); background: var(--good-soft); } .pill.warn { color: var(--warn); background: var(--warn-soft); } .pill.crit { color: var(--crit); background: var(--crit-soft); } .pill.acc { color: var(--accent); background: var(--accent-soft); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.tag.mech { color: var(--mech); border-color: var(--mech); } .tag.elec { color: var(--elec); border-color: var(--elec); } .tag.inst { color: var(--inst); border-color: var(--inst); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.toolbar input, .toolbar select { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 10px; }
+.toolbar .sp { flex: 1; }
+.btn { border: 0; border-radius: 9px; padding: 9px 14px; font-weight: 600; background: var(--accent); color: var(--on-accent); display: inline-flex; align-items: center; gap: 6px; }
+.btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.btn.danger { background: var(--crit); color: #fff; } .btn.good { background: var(--good); color: #fff; }
+.btn.sm { padding: 5px 10px; font-size: 12.5px; border-radius: 7px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.tablew { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--sunken); white-space: nowrap; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
+td.muted, .muted { color: var(--muted); }
+.group-h { font-weight: 700; font-size: 14px; padding: 14px 4px 6px; display: flex; justify-content: space-between; }
+
+.order-head { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 14px; }
+.order-head h2 { font-size: 20px; }
+.order-head .meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.detail { grid-template-columns: minmax(0, 1fr) minmax(0, 360px); align-items: start; }
+.dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; font-size: 13px; }
+.dl dt { color: var(--muted); } .dl dd { margin: 0; }
+.steps { display: flex; flex-direction: column; gap: 0; }
+.step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 6px 0; position: relative; }
+.step::before { content: ""; position: absolute; left: 10px; top: 24px; bottom: -6px; width: 2px; background: var(--line); }
+.step:last-child::before { display: none; }
+.step i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); z-index: 1; }
+.step.done i { border-color: var(--good); background: var(--good); color: #fff; }
+.step.now i { border-color: var(--accent); color: var(--accent); }
+.step .t { font-weight: 600; font-size: 13px; } .step .s { font-size: 12px; color: var(--muted); }
+.step .sig { font-size: 12px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.sig b { font-family: "Brush Script MT", "Segoe Script", cursive; font-weight: 400; font-size: 15px; color: var(--accent); }
+.action { border: 2px solid var(--accent); }
+.action h3 { color: var(--accent); }
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.field label, .label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.field input[type="text"], .field input[type="datetime-local"], .field select, .field textarea { border: 1px solid var(--line); background: var(--sunken); border-radius: 8px; padding: 8px 10px; width: 100%; }
+.field textarea { min-height: 70px; resize: vertical; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 12.5px; }
+.chips button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
+.check input { width: 17px; height: 17px; accent-color: var(--accent); }
+.err { color: var(--crit); font-size: 12.5px; margin: 4px 0 8px; }
+.pin { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.pin input { width: 90px; border: 1px solid var(--line); background: var(--sunken); border-radius: 8px; padding: 8px 10px; letter-spacing: .3em; }
+.job { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: var(--sunken); }
+.job .h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
+.job .b { font-size: 12.5px; margin-top: 4px; }
+.note { font-size: 12.5px; background: var(--sunken); border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
+.note b { color: var(--muted); font-weight: 600; }
+.att { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; } .att img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.photo { display: flex; align-items: center; gap: 10px; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; color: var(--muted); } .photo input { display: none; } .photo label { color: var(--accent); font-weight: 600; cursor: pointer; }
+
+.scan { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
+.viewfinder { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 16px; background: #0c1217; display: grid; place-items: center; overflow: hidden; margin-bottom: 12px; }
+.viewfinder .frame { width: 60%; aspect-ratio: 1; position: relative; }
+.viewfinder .frame i { position: absolute; width: 30px; height: 30px; border-color: #6fd3ff; border-style: solid; }
+.viewfinder .frame i:nth-child(1) { top: 0; left: 0; border-width: 4px 0 0 4px; border-radius: 8px 0 0 0; }
+.viewfinder .frame i:nth-child(2) { top: 0; right: 0; border-width: 4px 4px 0 0; border-radius: 0 8px 0 0; }
+.viewfinder .frame i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-radius: 0 0 0 8px; }
+.viewfinder .frame i:nth-child(4) { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-radius: 0 0 8px 0; }
+.viewfinder .line { position: absolute; inset-inline: 20%; height: 2px; background: #6fd3ff; box-shadow: 0 0 12px #6fd3ff; top: 20%; animation: scan 2.2s ease-in-out infinite alternate; }
+@keyframes scan { to { top: 80%; } }
+@media (prefers-reduced-motion: reduce) { .viewfinder .line { animation: none; top: 50%; } }
+.viewfinder p { position: absolute; bottom: 10px; margin: 0; color: #b9d7e8; font-size: 12.5px; }
+.asset-head { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.asset-head .qr { background: #fff; border-radius: 10px; padding: 8px; width: 120px; flex: none; } .asset-head .qr svg { width: 100%; height: auto; display: block; }
+.hist { display: flex; flex-direction: column; gap: 6px; }
+.hist .it { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; font-size: 12.5px; padding: 7px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.hist .it:last-child { border-bottom: 0; }
+
+.modal { position: fixed; inset: 0; background: rgba(8, 14, 20, .55); display: grid; place-items: center; padding: 16px; z-index: 30; }
+.modal .box { background: var(--surface); color: var(--ink); border-radius: 14px; max-width: 760px; width: 100%; max-height: 92vh; overflow: auto; padding: 20px; }
+.report { font-size: 12.5px; border: 1px solid var(--ink); padding: 14px; }
+.report .rh { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--ink); padding-bottom: 8px; margin-bottom: 10px; }
+.report .rh b { font-size: 15px; } .report .rh .no { color: var(--crit); font-family: var(--f-mono); font-weight: 600; }
+.report section { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.report section h4 { font-size: 12.5px; text-decoration: underline; margin-bottom: 4px; }
+.report .sigrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.report .sigbox { border: 1px dashed var(--line); padding: 6px 8px; border-radius: 6px; min-height: 54px; }
+.report .sigbox small { display: block; color: var(--muted); font-size: 11px; }
+.label-print { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; border: 2px solid var(--ink); border-radius: 10px; padding: 12px; background: #fff; color: #111; width: 240px; }
+.label-print svg { width: 160px; height: 160px; }
+.label-print b { font-size: 16px; font-family: var(--f-mono); } .label-print small { font-size: 11px; text-align: center; }
+.toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 40; max-width: 90vw; }
+.empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  nav.side { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding-block: 10px; padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .brand { width: 100%; } .demo-tag { margin: 0 0 4px; width: 100%; }
+  nav.side a { padding: 6px 10px; font-size: 13px; }
+  main { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .detail, .scan { grid-template-columns: minmax(0, 1fr); }
+  .bar { grid-template-columns: 110px minmax(0, 1fr) 36px; }
+}
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .modal, .modal .box { position: static !important; display: block !important; background: #fff !important; padding: 0 !important; max-height: none !important; max-width: none !important; overflow: visible !important; border-radius: 0 !important; }
+  .report, .report * { visibility: visible; color: #000 !important; }
+  .report { position: absolute; left: 0; top: 0; width: 100%; border-color: #000; font-size: 11.5pt; }
+  .report .muted, .report small { color: #444 !important; }
+  .report .sigbox { border-color: #888; break-inside: avoid; }
+  .report .sigbox b { color: #1a3a8a !important; }
+  .report section { break-inside: avoid; }
+}
+</style>
+
+<div class="app">
+  <nav class="side" aria-label="Main">
+    <div class="brand">Al-Baha Maintenance Platform<small>Caustic-Chlorine Industry</small></div>
+    <div class="demo-tag">Interactive demo · sample data</div>
+    <a href="#overview" data-v="overview">Overview</a>
+    <a href="#orders" data-v="orders">Work Orders <span class="badge" id="b-orders" hidden></span></a>
+    <a href="#shutdown" data-v="shutdown">Shutdown List <span class="badge" id="b-shut" hidden></span></a>
+    <a href="#pm" data-v="pm">PM Schedule <span class="badge" id="b-pm" hidden></span></a>
+    <a href="#assets" data-v="assets">Assets</a>
+    <a href="#scan" data-v="scan">Scan QR</a>
+  </nav>
+  <main>
+    <div class="topbar">
+      <h1 id="title">Overview</h1>
+      <div class="acting"><div class="avatar" id="avatar">GM</div><div><label for="who">Acting as</label><br><select id="who"></select></div></div>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="modal"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===================== data ===================== */
+const DATA = {"pumps":[{"tag":"02P001A","name":"Saturator 1","zone":1,"unit":"Brine","kw":"15","rpm":"3000","remark":"","untagged":false},{"tag":"02P001B","name":"Saturator 2","zone":1,"unit":"Brine","kw":"15","rpm":"3000","remark":"","untagged":false},{"tag":"04P001A","name":"Hold Up 1","zone":1,"unit":"Brine","kw":"18.5","rpm":"2900","remark":"","untagged":false},{"tag":"04P001B","name":"Hold up 2","zone":1,"unit":"Brine","kw":"18.5","rpm":"2900","remark":"","untagged":false},{"tag":"04P001C","name":"Hold up3","zone":1,"unit":"Brine","kw":"15","rpm":"3000","remark":"","untagged":false},{"tag":"05P001A","name":"Polish 1","zone":1,"unit":"Brine","kw":"18.5","rpm":"2900","remark":"","untagged":false},{"tag":"05P001B","name":"Polish 2","zone":1,"unit":"Brine","kw":"18.5","rpm":"2900","remark":"","untagged":false},{"tag":"04P002A","name":"Sludge pit 1","zone":1,"unit":"Brine","kw":"30","rpm":"2900","remark":"","untagged":false},{"tag":"04P002B","name":"Sludge pit 2","zone":1,"unit":"Brine","kw":"30","rpm":"2900","remark":"","untagged":false},{"tag":"Y06P003/06P004","name":"ION regeneration pump","zone":1,"unit":"Brine","kw":"3.75","rpm":"3000","remark":"","untagged":false},{"tag":"06P002A","name":"Waste brine","zone":1,"unit":"Brine","kw":"5.5","rpm":"2984","remark":"","untagged":false},{"tag":"03P001A","name":"Na2CO3 pump 1","zone":1,"unit":"Brine","kw":"2.2","rpm":"3000","remark":"","untagged":false},{"tag":"03P001B","name":"Na2CO3 pump 2","zone":1,"unit":"Brine","kw":"4.9","rpm":"1460","remark":"","untagged":false},{"tag":"25P001D","name":"NaOH 50% D&E 1","zone":1,"unit":"Brine","kw":"5.5","rpm":"2900","remark":"","untagged":false},{"tag":"25P001E","name":"NaOH 50% D&E2","zone":1,"unit":"Brine","kw":"7.5","rpm":"2900","remark":"","untagged":false},{"tag":"41P1001","name":"Feed Pump","zone":1,"unit":"Sodium sulfate","kw":null,"rpm":null,"remark":"","untagged":false},{"tag":"41P1002","name":"Recirculation Pump","zone":1,"unit":"Sodium sulfate","kw":"11","rpm":"1460","remark":"Not found","untagged":false},{"tag":"41P1003","name":"Concentrate Outlet Screw Pump","zone":1,"unit":"Sodium sulfate","kw":"5.5","rpm":"2905","remark":"","untagged":false},{"tag":"41P1004","name":"M.L. Transfer Pump","zone":1,"unit":"Sodium sulfate","kw":"2.2","rpm":"2900","remark":"","untagged":false},{"tag":"41P1007","name":"Seal Water Pump 1","zone":1,"unit":"Sodium sulfate","kw":"2.2","rpm":"2850","remark":"","untagged":false},{"tag":"41P1008","name":"Chilled Brine Water Transfer Pump 1","zone":1,"unit":"Sodium sulfate","kw":"5.5","rpm":"2900","remark":"","untagged":false},{"tag":"41P1009","name":"Chilled Brine Water Transfer Pump 2","zone":1,"unit":"Sodium sulfate","kw":"2.2","rpm":"2900","remark":"","untagged":false},{"tag":"40P1704A","name":"Low Sulphate Brine Pumps","zone":1,"unit":"SRS","kw":"5.5","rpm":"2964","remark":"","untagged":false},{"tag":"40P1704B","name":"Low Sulphate Brine Pumps","zone":1,"unit":"SRS","kw":"5.5","rpm":"2964","remark":"","untagged":false},{"tag":"40P1705","name":"CIP Pump","zone":1,"unit":"SRS","kw":"7.5","rpm":"2930","remark":"","untagged":false},{"tag":"40P1701A","name":"SRS LEAN BRINE PUMPS A","zone":1,"unit":"SRS","kw":"4","rpm":"2880","remark":"","untagged":false},{"tag":"40P1701B","name":"SRS LEAN BRINE PUMPS B","zone":1,"unit":"SRS","kw":"4","rpm":"3000","remark":"","untagged":false},{"tag":"TBD-01","name":"Water Tank NO 8 pump","zone":2,"unit":"CellHouse","kw":"0.75","rpm":"2900","remark":"","untagged":true},{"tag":"07P001A","name":"Lean brine 1","zone":2,"unit":"CellHouse","kw":"18.5","rpm":"2949","remark":"","untagged":false},{"tag":"07P001B","name":"Lean brine 2","zone":2,"unit":"CellHouse","kw":"18.5","rpm":"3000","remark":"","untagged":false},{"tag":"17P001A","name":"H2SO4 78% 1","zone":2,"unit":"CellHouse","kw":"7.5","rpm":"3000","remark":"RPM cannor be checked due to closed coupling area","untagged":false},{"tag":"17P001B","name":"H2SO4 78% 2","zone":2,"unit":"CellHouse","kw":"4","rpm":"2900","remark":"","untagged":false},{"tag":"17P004A","name":"H2SO4 98% 1","zone":2,"unit":"CellHouse","kw":"3.75","rpm":"1462","remark":"","untagged":false},{"tag":"13P001A","name":"Cooling water in rectifier pit  1","zone":2,"unit":"CellHouse","kw":"5.5","rpm":"2930","remark":"","untagged":false},{"tag":"13P001B","name":"Cooling water in rectifier pit  2","zone":2,"unit":"CellHouse","kw":"5.5","rpm":"2930","remark":"","untagged":false},{"tag":"08P001A","name":"CDT PUMP","zone":2,"unit":"CellHouse","kw":"5.5","rpm":"2915","remark":"","untagged":false},{"tag":"06P001A","name":"Ultra-pump 1","zone":2,"unit":"CellHouse","kw":"18.5","rpm":"2949","remark":"Meg drive pump","untagged":false},{"tag":"060011B","name":"Ultra-pump 2","zone":2,"unit":"CellHouse","kw":"22","rpm":"2956","remark":"","untagged":false},{"tag":"23P001A","name":"Catholyte pump 1","zone":2,"unit":"CellHouse","kw":"30","rpm":"2935","remark":"","untagged":false},{"tag":"23P001B","name":"Catholyte pump 2","zone":2,"unit":"CellHouse","kw":"30","rpm":"2935","remark":"","untagged":false},{"tag":"76P001A","name":"RO booster pump 1","zone":2,"unit":"R.O","kw":"4","rpm":"2890","remark":"","untagged":false},{"tag":"76P001B","name":"RO booster pump 2","zone":2,"unit":"R.O","kw":"4","rpm":"2890","remark":"","untagged":false},{"tag":"76P004A","name":"RO high pressure pump 1","zone":2,"unit":"R.O","kw":"22","rpm":"2900","remark":"","untagged":false},{"tag":"76P004B","name":"RO high pressure pump 2","zone":2,"unit":"R.O","kw":"22","rpm":"2900","remark":"multistage pump","untagged":false},{"tag":"76P002A","name":"RO Water product tank 1","zone":2,"unit":"R.O","kw":"9.2","rpm":"2900","remark":"multistage pump","untagged":false},{"tag":"76P002B","name":"RO Water product tank 2","zone":2,"unit":"R.O","kw":"9.2","rpm":"2900","remark":"","untagged":false},{"tag":"76P003","name":"CIP Pump in RO","zone":2,"unit":"R.O","kw":"0.75","rpm":"2900","remark":"","untagged":false},{"tag":"76P005A","name":"Drinking water","zone":2,"unit":"R.O","kw":"5","rpm":"2925","remark":"","untagged":false},{"tag":"76P011","name":"RO reject pump","zone":2,"unit":"R.O","kw":"3","rpm":"2900","remark":"","untagged":false},{"tag":"TBD-02","name":"RO reject pump","zone":2,"unit":"R.O","kw":"5.5","rpm":"2958","remark":"","untagged":true},{"tag":"TBD-03","name":"Water Tank NO3 pump 1","zone":2,"unit":"R.O","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"TBD-04","name":"Water Tank NO3 pump 2","zone":2,"unit":"R.O","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"TBD-05","name":"Water Tank NO 5&6  pump","zone":2,"unit":"R.O","kw":"4","rpm":"2890","remark":"Pump removed","untagged":true},{"tag":"TBD-06","name":"Water Tank NO 6  pump","zone":2,"unit":"R.O","kw":"5.5","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-07","name":"Water Tank No7 pump 1","zone":2,"unit":"R.O","kw":"1.1","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-08","name":"Water Tank No7 pump 2","zone":2,"unit":"R.O","kw":"1.1","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-09","name":"Tiaano pump 1","zone":2,"unit":"Tiaano","kw":"2.2","rpm":"2860","remark":"","untagged":true},{"tag":"TBD-10","name":"Tiaano pump 2","zone":2,"unit":"Tiaano","kw":"2.2","rpm":"2860","remark":"","untagged":true},{"tag":"TBD-11","name":"Water Tank NO1 pump","zone":2,"unit":"Tiaano","kw":"4","rpm":"1460","remark":"","untagged":true},{"tag":"TBD-12","name":"Tiaano water Tank NO.9 pump","zone":2,"unit":"Tiaano","kw":"7.5","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-13","name":"Water Tank NO2 pump","zone":2,"unit":"Tiaano","kw":"4","rpm":"2890","remark":"","untagged":true},{"tag":"TBD-14","name":"DMW circulation Pump on rectifier for cooling A","zone":2,"unit":"Rectifeir","kw":"5.5","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-15","name":"DMW circulation Pump on rectifier for cooling B","zone":2,"unit":"Rectifeir","kw":"5.5","rpm":"2900","remark":"","untagged":true},{"tag":"17P004B","name":"H2SO4 98%  pump 2","zone":3,"unit":"Hypo","kw":"3.75","rpm":"1462","remark":"","untagged":false},{"tag":"27P003A","name":"Hypo storage 1","zone":3,"unit":"Hypo","kw":"5.5","rpm":"2930","remark":"","untagged":false},{"tag":"27P003B","name":"Hypo storage 2","zone":3,"unit":"Hypo","kw":"5.5","rpm":"2930","remark":"","untagged":false},{"tag":"27P003C","name":"Hypo storage 3","zone":3,"unit":"Hypo","kw":"15","rpm":"2900","remark":"","untagged":false},{"tag":"27P001A","name":"Hypo preparation pump 1","zone":3,"unit":"Hypo","kw":"7.5","rpm":"2930","remark":"","untagged":false},{"tag":"27P001B","name":"Hypo preparation pump 2","zone":3,"unit":"Hypo","kw":"7.5","rpm":"2930","remark":"","untagged":false},{"tag":"26P003","name":"Hypo pit pump","zone":3,"unit":"Hypo","kw":"2.2","rpm":"1460","remark":"","untagged":false},{"tag":"74P002A","name":"Chilled to plant 1","zone":3,"unit":"VAM","kw":"37","rpm":"3000","remark":"","untagged":false},{"tag":"74P002B","name":"Chilled to plant 2","zone":3,"unit":"VAM","kw":"37","rpm":"3000","remark":"","untagged":false},{"tag":"74P001A","name":"VAM circulation pump 1","zone":3,"unit":"VAM","kw":"18.5","rpm":"1464","remark":"","untagged":false},{"tag":"74P001B","name":"VAM circulation pump 2","zone":3,"unit":"VAM","kw":"18.5","rpm":"1464","remark":"","untagged":false},{"tag":"TBD-16","name":"Fuel pump Flake Burner","zone":4,"unit":"CCU","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"24P6001","name":"Molten Salt","zone":4,"unit":"CCU","kw":"45","rpm":"3000","remark":"the pump is inside the flake burner","untagged":false},{"tag":"24P1102A","name":"CCU Buffer 1","zone":4,"unit":"CCU","kw":"7.5","rpm":"2900","remark":"pump not installed","untagged":false},{"tag":"24P1102B","name":"CCU Buffer 2","zone":4,"unit":"CCU","kw":"7.5","rpm":"2900","remark":"","untagged":false},{"tag":"24P1101A","name":"CCU 1st stage 1","zone":4,"unit":"CCU","kw":"7.5","rpm":"2900","remark":"","untagged":false},{"tag":"24P1101B","name":"CCU 1st stage 2","zone":4,"unit":"CCU","kw":"7.5","rpm":"2900","remark":"Meg drive pump","untagged":false},{"tag":"24P1201A","name":"CCU 2nd stage 1","zone":4,"unit":"CCU","kw":"5.5","rpm":"2934","remark":"Meg drive pump","untagged":false},{"tag":"24P1201B","name":"CCU 2nd stage 2","zone":4,"unit":"CCU","kw":"5.5","rpm":"2934","remark":"Meg drive pump","untagged":false},{"tag":"24P1301A","name":"CCU 3rd stage 1","zone":4,"unit":"CCU","kw":"7.5","rpm":"2930","remark":"Meg drive pump","untagged":false},{"tag":"24P1301B","name":"CCU 3rd stage 2","zone":4,"unit":"CCU","kw":"7.5","rpm":"2930","remark":"Meg drive pump","untagged":false},{"tag":"24P7101A","name":"CCU Cond. Tank 1","zone":4,"unit":"CCU","kw":"7.5","rpm":"2982","remark":"","untagged":false},{"tag":"24P7101B","name":"CCU Cond. Tank 2","zone":4,"unit":"CCU","kw":"7.5","rpm":"2982","remark":"","untagged":false},{"tag":"25P001A","name":"NaOH 50% Tank A pump 1","zone":4,"unit":"CCU","kw":"7.5","rpm":"3000","remark":"","untagged":false},{"tag":"25P001B","name":"NaOH 50% Tank B pump 2","zone":4,"unit":"CCU","kw":"7.5","rpm":"2930","remark":"","untagged":false},{"tag":"TBD-17","name":"NaOH 50% Tank A&B pump","zone":4,"unit":"CCU","kw":"11","rpm":"2984","remark":"","untagged":true},{"tag":"25P002","name":"NaOH 50% PIT","zone":4,"unit":"CCU","kw":"2.2","rpm":"1460","remark":"","untagged":false},{"tag":"25P002A","name":"NaOH 50% H&G","zone":4,"unit":"CCU","kw":"7.5","rpm":"3000","remark":"","untagged":false},{"tag":"25P003A","name":"NaOH 50% I&J","zone":4,"unit":"CCU","kw":"11","rpm":"2964","remark":"","untagged":false},{"tag":"A","name":"Flake fuel pump A","zone":4,"unit":"CCU","kw":"1.5","rpm":"1430","remark":"","untagged":false},{"tag":"B","name":"Flake fuel pump B","zone":4,"unit":"CCU","kw":"1.5","rpm":"1430","remark":"","untagged":false},{"tag":"TBD-18","name":"DIESEL PUMP","zone":4,"unit":"CCU","kw":"5.5","rpm":"3000","remark":"","untagged":true},{"tag":"24P3101A","name":"CCU COOLING PUMP","zone":4,"unit":"CCU","kw":"11","rpm":"2956","remark":"","untagged":false},{"tag":"24P3101B","name":"GOV PUMP","zone":4,"unit":"CCU","kw":"11","rpm":"2956","remark":"","untagged":false},{"tag":"25P001F","name":"Dillution tank","zone":2,"unit":"CCU","kw":"20","rpm":"2935","remark":"","untagged":false},{"tag":"29P001A","name":"HCL transfer pump 1","zone":4,"unit":"HCl","kw":"5.5","rpm":"2840","remark":"","untagged":false},{"tag":"28P001A","name":"HCL transfer pump 2","zone":4,"unit":"HCl","kw":"4","rpm":"2840","remark":"","untagged":false},{"tag":"28P001B","name":"HCL transfer pump 3","zone":4,"unit":"HCl","kw":"3.75","rpm":"3000","remark":"","untagged":false},{"tag":"29P001B","name":"HCL PIT PUMP","zone":4,"unit":"HCl","kw":"5.5","rpm":"2930","remark":"Pump not installed","untagged":false},{"tag":"TBD-19","name":"H2SO4 78% pump on DCL2 A","zone":4,"unit":"HCl","kw":"3","rpm":"1950","remark":"","untagged":true},{"tag":"7304A","name":"DMW Degasser pump 1","zone":5,"unit":"DMW","kw":"5.5","rpm":"2964","remark":"","untagged":false},{"tag":"7304B","name":"DMW Degasser pump 2","zone":5,"unit":"DMW","kw":"5.5","rpm":"2964","remark":"","untagged":false},{"tag":"71P001A","name":"Process water 1","zone":5,"unit":"DMW","kw":"7.5","rpm":"2900","remark":"","untagged":false},{"tag":"71P001B","name":"Process water 2","zone":5,"unit":"DMW","kw":"7.5","rpm":"2900","remark":"","untagged":false},{"tag":"71P001C","name":"Process water to Hypo 1","zone":5,"unit":"DMW","kw":"2.2","rpm":"2840","remark":"","untagged":false},{"tag":"71P001D","name":"Process water to Hypo 2","zone":5,"unit":"DMW","kw":"2.2","rpm":"2840","remark":"","untagged":false},{"tag":"25P002C","name":"NaOH 32% pump 1","zone":3,"unit":"DMW","kw":"15","rpm":"2930","remark":"","untagged":false},{"tag":"25P003C","name":"NaOH 32% pump 2","zone":3,"unit":"DMW","kw":"15","rpm":"2930","remark":"","untagged":false},{"tag":"MP-7302","name":"HCL pump in DMW unit","zone":3,"unit":"DMW","kw":"3.75","rpm":"2900","remark":"","untagged":false},{"tag":"MP-7303","name":"NaOH pump in DMW unit","zone":3,"unit":"DMW","kw":"7.5","rpm":"3000","remark":"","untagged":false},{"tag":"83P001","name":"Elec. Fire pump","zone":3,"unit":"DMW","kw":"37","rpm":"2900","remark":"process cannot run this pump","untagged":false},{"tag":"TBD-20","name":"Jockey","zone":3,"unit":"DMW","kw":"4","rpm":"2900","remark":"","untagged":true},{"tag":"83P002","name":"Fuel fire pump","zone":3,"unit":"DMW","kw":null,"rpm":null,"remark":"","untagged":false},{"tag":"73P001A","name":"DMW storage 1","zone":3,"unit":"DMW","kw":"15","rpm":"2900","remark":"Pump is coonected to diesel generater","untagged":false},{"tag":"73P001B","name":"DMW storage 2","zone":3,"unit":"DMW","kw":"15","rpm":"2900","remark":"","untagged":false},{"tag":"TBD-21","name":"Dmw filling","zone":3,"unit":"DMW","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"75P001A","name":"Cooling circulation pump 1","zone":5,"unit":"Cooling","kw":"75","rpm":"1485","remark":"","untagged":false},{"tag":"75P001B","name":"Cooling circulation pump 2","zone":5,"unit":"Cooling","kw":"75","rpm":"1485","remark":"","untagged":false},{"tag":"75P001C","name":"Cooling circulation pump 3","zone":5,"unit":"Cooling","kw":"132","rpm":"1485","remark":"","untagged":false},{"tag":"75P021A","name":"Cooling Make Up Pump","zone":5,"unit":"Cooling","kw":"1.5","rpm":"2900","remark":"","untagged":false},{"tag":"75P021B","name":"Cooling Make Up Pump","zone":5,"unit":"Cooling","kw":"1.5","rpm":"2900","remark":"","untagged":false},{"tag":"25P001K","name":"NaOH 50% K","zone":5,"unit":"Cooling","kw":"11.5","rpm":"3000","remark":"","untagged":false},{"tag":"TBD-22","name":"EMERGENCY for Air comprssor pump","zone":5,"unit":"Cooling","kw":"7.5","rpm":"2920","remark":"","untagged":true},{"tag":"84P001","name":"RO waste water pit pump","zone":5,"unit":"Cooling","kw":"15","rpm":"1460","remark":"","untagged":false},{"tag":"84P002","name":"Evaporation pit pump","zone":5,"unit":"Cooling","kw":"7.5","rpm":"2840","remark":"","untagged":false},{"tag":"TBD-23","name":"Day tank filling pump","zone":6,"unit":"Boiler","kw":"1.1","rpm":"1400","remark":"","untagged":true},{"tag":"TBD-24","name":"Day tank circulation pump 1","zone":6,"unit":"Boiler","kw":"0.75","rpm":"950","remark":"","untagged":true},{"tag":"TBD-25","name":"Day tank circulation pump 2","zone":6,"unit":"Boiler","kw":"0.75","rpm":"950","remark":"","untagged":true},{"tag":"TBD-26","name":"10T fuel pump 1","zone":6,"unit":"Boiler","kw":"3","rpm":"1445","remark":"","untagged":true},{"tag":"TBD-27","name":"10T fuel pump 2","zone":6,"unit":"Boiler","kw":"3","rpm":"1445","remark":"","untagged":true},{"tag":"TBD-28","name":"Feed water pump for 4T boiler 1","zone":6,"unit":"Boiler","kw":"5.5","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-29","name":"Feed water pump for 4T boiler 2","zone":6,"unit":"Boiler","kw":"5.5","rpm":"2900","remark":"","untagged":true},{"tag":"TBD-30","name":"Feed water pump for 10T boiler 1","zone":6,"unit":"Boiler","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"TBD-31","name":"Feed water pump for 10T boiler 2","zone":6,"unit":"Boiler","kw":null,"rpm":null,"remark":"","untagged":true},{"tag":"30P001A","name":"Feed water pump for 6T boiler 1","zone":6,"unit":"Boiler","kw":"7.5","rpm":"2919","remark":"","untagged":false},{"tag":"30P001B","name":"Feed water pump for 6T boiler 2","zone":6,"unit":"Boiler","kw":"7.5","rpm":"2919","remark":"","untagged":false},{"tag":"30P006A","name":"6T boiler fuel oil feed","zone":6,"unit":"Boiler","kw":"1.1","rpm":"3000","remark":"","untagged":false},{"tag":"30P006B","name":"6T boiler fuel oil feed","zone":6,"unit":"Boiler","kw":"1.1","rpm":"3000","remark":"","untagged":false},{"tag":"TBD-32","name":"4T boiler fuel oil feed","zone":6,"unit":"Boiler","kw":"1.5","rpm":null,"remark":"","untagged":true},{"tag":"TBD-33","name":"4T boiler fuel oil feed","zone":6,"unit":"Boiler","kw":"1.5","rpm":null,"remark":"","untagged":true}],"cal":{"06P001A":{"day":"Sat","week":1,"six":[2,8]},"06P001B":{"day":"Sat","week":1,"six":[1,7]},"07P001A":{"day":"Sat","week":1,"six":[6,12]},"07P001B":{"day":"Sat","week":1,"six":[4,9]},"13P001A":{"day":"Sat","week":1,"six":[5,10]},"13P001B":{"day":"Sat","week":1,"six":[7,11]},"17P001A":{"day":"Sun","week":1,"six":[1,7]},"17P001B":{"day":"Sun","week":1,"six":[2,8]},"17P004A":{"day":"Sun","week":1,"six":[3,9]},"17P004B":{"day":"Sun","week":1,"six":[4,10]},"17P003A":{"day":"Sun","week":1,"six":[6,11]},"17P003B":{"day":"Sun","week":1,"six":[5,10]},"25P001B":{"day":"Mon","week":1,"six":[6,11]},"25P001D":{"day":"Mon","week":1,"six":[7,12]},"23P001A":{"day":"Mon","week":1,"six":[1,6]},"23P001B":{"day":"Mon","week":1,"six":[2,7]},"23P002A":{"day":"Mon","week":1,"six":[3,8]},"25P001A":{"day":"Mon","week":1,"six":[4,10]},"25P001C":{"day":"Mon","week":2,"six":[6,11]},"25P001E":{"day":"Tue","week":1,"six":[1,7]},"84P001":{"day":"Tue","week":1,"six":[2,8]},"84P002":{"day":"Tue","week":1,"six":[3,9]},"84P003":{"day":"Tue","week":1,"six":[4,10]},"84P004":{"day":"Tue","week":1,"six":[5,11]},"74P002A":{"day":"Wed","week":1,"six":[1,7]},"74P002B":{"day":"Wed","week":1,"six":[2,8]},"74P001A":{"day":"Wed","week":1,"six":[3,9]},"74P001B":{"day":"Wed","week":1,"six":[5,10]},"29P001A":{"day":"Wed","week":1,"six":[6,12]},"29P001B":{"day":"Wed","week":1,"six":[1,7]},"28P001A":{"day":"Thr","week":1,"six":[1,6]},"28P001B":{"day":"Thr","week":1,"six":[2,7]},"30P005A":{"day":"Thr","week":1,"six":[3,9]},"30P005B":{"day":"Thr","week":1,"six":[4,10]},"30P006A":{"day":"Thr","week":1,"six":[5,11]},"30P006B":{"day":"Thr","week":1,"six":[6,12]},"30P007":{"day":"Sat","week":2,"six":[1,6]},"30P001A":{"day":"Sat","week":2,"six":[2,7]},"30P001B":{"day":"Sat","week":2,"six":[3,8]},"30P002A":{"day":"Sat","week":2,"six":[4,9]},"30P002B":{"day":"Sat","week":2,"six":[5,10]},"30P003A":{"day":"Sat","week":2,"six":[7,12]},"30P003B":{"day":"Sun","week":2,"six":[1,6]},"30P004A":{"day":"Sun","week":2,"six":[2,7]},"30P004B":{"day":"Sun","week":2,"six":[3,8]},"30P004C":{"day":"Sun","week":2,"six":[4,10]},"26P001A":{"day":"Sun","week":2,"six":[5,11]},"26P001B":{"day":"Sun","week":2,"six":[6,12]},"27P001A":{"day":"Mon","week":2,"six":[1,6]},"27P001B":{"day":"Mon","week":2,"six":[2,7]},"27P003A":{"day":"Mon","week":2,"six":[3,8]},"27P003B":{"day":"Mon","week":2,"six":[4,9]},"26P003":{"day":"Mon","week":2,"six":[5,10]},"71P001A":{"day":"Tue","week":2,"six":[1,6]},"71P001B":{"day":"Tue","week":2,"six":[2,7]},"73P001A":{"day":"Tue","week":2,"six":[3,8]},"73P001B":{"day":"Tue","week":2,"six":[4,10]},"73P004A":{"day":"Tue","week":2,"six":[5,11]},"73P004B":{"day":"Tue","week":2,"six":[6,12]},"MP-7302":{"day":"Wed","week":2,"six":[1,6]},"MP-7303":{"day":"Wed","week":2,"six":[2,7]},"83P001A":{"day":"Wed","week":2,"six":[3,8]},"83P001B":{"day":"Wed","week":2,"six":[4,9]},"02P001A":{"day":"Wed","week":2,"six":[5,10]},"02P001B":{"day":"Wed","week":2,"six":[6,11]},"03P001A":{"day":"Thr","week":2,"six":[1,6]},"03P002":{"day":"Thr","week":2,"six":[2,7]},"03p001B":{"day":"Thr","week":2,"six":[3,8]},"04P001A":{"day":"Thr","week":2,"six":[4,9]},"04P002A":{"day":"Thr","week":2,"six":[5,10]},"04P002B":{"day":"Thr","week":2,"six":[6,11]},"04P001B":{"day":"Sat","week":3,"six":[1,6]},"08P001":{"day":"Sat","week":3,"six":[2,7]},"23P001C":{"day":"Sat","week":3,"six":[3,8]},"05P001A":{"day":"Sat","week":3,"six":[4,9]},"05P001B":{"day":"Sat","week":3,"six":[5,10]},"06P002A":{"day":"Sat","week":3,"six":[6,11]},"71P00C":{"day":"Sun","week":3,"six":[1,6]},"06P003":{"day":"Sun","week":3,"six":[2,7]},"75P001A":{"day":"Sun","week":3,"six":[3,8]},"75P001B":{"day":"Sun","week":3,"six":[4,9]},"75P001C":{"day":"Sun","week":3,"six":[5,10]},"75P001D":{"day":"Sun","week":3,"six":[6,11]},"75P001E":{"day":"Mon","week":3,"six":[1,5]},"26K001A":{"day":"Mon","week":3,"six":[2,6]},"26K001B":{"day":"Mon","week":3,"six":[3,7]},"MP-7301":{"day":"Mon","week":3,"six":[4,9]},"75P005":{"day":"Mon","week":3,"six":[5,10]},"75P006":{"day":"Mon","week":3,"six":[6,11]},"75P007":{"day":"Tue","week":3,"six":[1,6]},"75P008":{"day":"Tue","week":3,"six":[2,7]},"13P002B":{"day":"Tue","week":3,"six":[3,8]},"13P002A":{"day":"Tue","week":3,"six":[4,9]},"76P001A":{"day":"Tue","week":3,"six":[5,10]},"76P001B":{"day":"Tue","week":3,"six":[6,11]},"76P002A":{"day":"Wed","week":3,"six":[1,6]},"76P002B":{"day":"Wed","week":3,"six":[2,7]},"76P003":{"day":"Wed","week":3,"six":[3,8]},"76P004A":{"day":"Wed","week":3,"six":[4,9]},"76P004B":{"day":"Wed","week":3,"six":[5,10]},"76P005A":{"day":"Wed","week":3,"six":[6,11]},"76P006A":{"day":"Thr","week":3,"six":[3,8]},"76P006B":{"day":"Thr","week":3,"six":[4,9]},"76P007A":{"day":"Thr","week":3,"six":[5,10]},"76P007B":{"day":"Thr","week":3,"six":[6,11]},"76P008A":{"day":"Sat","week":4,"six":[3,8]},"76P008B":{"day":"Sat","week":4,"six":[2,7]},"76P009A":{"day":"Sat","week":4,"six":[4,9]},"76P009B":{"day":"Sat","week":4,"six":[5,10]},"76P0010A":{"day":"Sat","week":4,"six":[6,11]},"76P0010B":{"day":"Sun","week":4,"six":[1,6]},"76P0011":{"day":"Sun","week":4,"six":[2,7]},"76P0012":{"day":"Sun","week":4,"six":[3,8]},"P247101A":{"day":"Sun","week":4,"six":[4,9]},"P247101B":{"day":"Sun","week":4,"six":[5,10]},"P241301A":{"day":"Sun","week":4,"six":[6,11]},"P241301B":{"day":"Mon","week":4,"six":[1,6]},"P241101A":{"day":"Mon","week":4,"six":[2,7]},"P241101B":{"day":"Mon","week":4,"six":[3]},"P241201A":{"day":"Mon","week":4,"six":[4,9]},"P241201B":{"day":"Mon","week":4,"six":[5,10]},"P241102A":{"day":"Mon","week":4,"six":[6,11]},"P241102B":{"day":"Tue","week":4,"six":[1,6]},"03R001AZ01":{"day":"Tue","week":4,"six":[2,7]},"03R001BZ01":{"day":"Tue","week":4,"six":[3,8]},"03R001CZ01":{"day":"Tue","week":4,"six":[4,9]},"03R001AZ02":{"day":"Tue","week":4,"six":[5,10]},"03R001BZ02":{"day":"Tue","week":4,"six":[6,11]},"03R001AZ03":{"day":"Wed","week":4,"six":[1,6]},"03R001BZ03":{"day":"Wed","week":4,"six":[2,7]}}};
+const PUMPS = DATA.pumps, CAL = DATA.cal;
+const UNIT_FIX = { 'Rectifeir': 'Rectifier', 'Cooling': 'Cooling Tower' };
+PUMPS.forEach(p => { p.unit = UNIT_FIX[p.unit] || p.unit; p.status = 'Online'; p.cls = 'Pump'; });
+const byTag = t => PUMPS.find(p => p.tag === t);
+const H = 3600e3, D = 24 * H, NOW = Date.now();
+
+const USERS = [
+  { id: 'gm', name: 'Khalid A.', pos: 'General Manager', dept: 'Management' },
+  { id: 'proc_op', name: 'Ahmed S.', pos: 'Process Operator', dept: 'Process' },
+  { id: 'proc_eng', name: 'Omar H.', pos: 'Process Engineer', dept: 'Process' },
+  { id: 'proc_sup', name: 'Faisal M.', pos: 'Process Supervisor', dept: 'Process' },
+  { id: 'proc_mgr', name: 'Nasser Q.', pos: 'Process Manager', dept: 'Process' },
+  { id: 'maint_mgr', name: 'Hamad R.', pos: 'Maintenance Manager', dept: 'Maintenance' },
+  { id: 'mech_mgr', name: 'Saeed B.', pos: 'Mechanical Manager', dept: 'Maintenance', sector: 'Mechanical' },
+  { id: 'elec_mgr', name: 'Yousef K.', pos: 'Electrical Manager', dept: 'Maintenance', sector: 'Electrical' },
+  { id: 'inst_mgr', name: 'Tariq N.', pos: 'Instruments Manager', dept: 'Maintenance', sector: 'Instrumentation' },
+  { id: 'mech_eng', name: 'Rami D.', pos: 'Mechanical Engineer', dept: 'Maintenance', sector: 'Mechanical' },
+  { id: 'elec_eng', name: 'Majed T.', pos: 'Electrical Engineer', dept: 'Maintenance', sector: 'Electrical' },
+  { id: 'inst_eng', name: 'Sami W.', pos: 'Instruments Engineer', dept: 'Maintenance', sector: 'Instrumentation' },
+  { id: 'safety', name: 'Hassan J.', pos: 'Safety Manager', dept: 'Safety' },
+];
+const U = id => USERS.find(u => u.id === id);
+const SECTORS = ['Mechanical', 'Electrical', 'Instrumentation'];
+const SC = { Mechanical: 'mech', Electrical: 'elec', Instrumentation: 'inst' };
+const ENG = { Mechanical: 'mech_eng', Electrical: 'elec_eng', Instrumentation: 'inst_eng' };
+const MGR = { Mechanical: 'mech_mgr', Electrical: 'elec_mgr', Instrumentation: 'inst_mgr' };
+const PUMP_CHECKLIST = ['General visual check', 'Clean and apply oil on gland bolts', 'Check coupling condition', 'Check oil level and top up if needed', 'Check mechanical seal / gland packing leakage', 'Check suction and discharge valves', 'Check gauges', 'Check motor bearing temperature'];
+
+const STATUS = {
+  reported: ['Reported', 'warn'], classified: ['Awaiting report approval', 'warn'], open: ['Ticket open', 'acc'], held: ['Held for shutdown', ''],
+  scheduled: ['Scheduled', 'acc'], assigned: ['Awaiting isolation', 'warn'], isolated: ['Isolated', 'crit'], in_progress: ['In progress', 'acc'],
+  finished: ['Work finished', 'acc'], sector_approved: ['Sector approved', 'acc'], maint_approved: ['Awaiting fix confirmation', 'warn'], closed: ['Closed', 'ok'],
+};
+const STEP_ORDER = ['reported', 'classified', 'open', 'scheduled', 'assigned', 'isolated', 'in_progress', 'finished', 'sector_approved', 'maint_approved', 'closed'];
+const STEPS = [
+  ['reported', 'Problem reported', 'Process'], ['classified', 'Classified and report submitted', 'Process Engineer'], ['open', 'Report approved, ticket open', 'Process Supervisor / Manager'],
+  ['scheduled', 'Reviewed, appointment set', 'Maintenance Manager'], ['assigned', 'Engineers assigned', 'Sector Manager(s)'], ['isolated', 'Equipment isolated', 'Process, Electrical, Safety'],
+  ['in_progress', 'Job in progress', 'Maintenance Engineer(s)'], ['finished', 'Job finished and signed', 'Maintenance Engineer(s)'], ['sector_approved', 'Work checked', 'Sector Manager(s)'],
+  ['maint_approved', 'Final maintenance approval', 'Maintenance Manager'], ['closed', 'Fix confirmed, report issued', 'Process Supervisor / Manager'],
+];
+
+let seqC = 3252, seqP = 619;
+const sig = (uid, at, label) => ({ user: uid, at, label });
+function mk(o) {
+  const base = { type: 'CMO', photos: [], notes: [], sigs: [], jobs: [], isolation: { process: null, electrical: null, safety: null }, sectors: [], safetyClass: 'I', priority: 'Class 2', shutdown: false, rejected: null };
+  const t = Object.assign(base, o);
+  t.jobs = t.sectors.map((s, i) => Object.assign({ sector: s, engineer: null, actions: '', parts: '', started: null, finishedSig: null, approvedSig: null }, (o.jobs || [])[i] || {}));
+  return t;
+}
+const ORDERS = [
+  mk({ no: 3249, tag: '23P001A', desc: 'Abnormal vibration and bearing noise from the pump side, louder at the drive end. Pump still running.', raisedBy: 'proc_op', raisedAt: NOW - 0.4 * H, status: 'reported', photos: [] }),
+  mk({ no: 3248, tag: '24P1101B', desc: 'Mechanical seal leakage, chlorine smell around the pump. Drip tray filling.', raisedBy: 'proc_op', raisedAt: NOW - 2.2 * H, status: 'classified', sectors: ['Mechanical'], safetyClass: 'II', priority: 'Class 1', shutdown: false, sigs: [sig('proc_op', NOW - 2.2 * H, 'Reported'), sig('proc_eng', NOW - 1.6 * H, 'Report submitted')] }),
+  mk({ no: 3250, tag: '17P001A', desc: 'Motor trips on start after 3 to 5 seconds. Overload relay resets but trips again.', raisedBy: 'proc_eng', raisedAt: NOW - 26 * H, status: 'assigned', sectors: ['Electrical', 'Instrumentation'], safetyClass: 'I', priority: 'Class 1', appointment: NOW - 3 * H,
+    sigs: [sig('proc_eng', NOW - 26 * H, 'Reported'), sig('proc_eng', NOW - 25 * H, 'Report submitted'), sig('proc_sup', NOW - 24 * H, 'Report approved'), sig('maint_mgr', NOW - 20 * H, 'Ticket approved, appointment set'), sig('elec_mgr', NOW - 18 * H, 'Assigned Majed T.'), sig('inst_mgr', NOW - 17 * H, 'Assigned Sami W.')],
+    jobs: [{ engineer: 'elec_eng' }, { engineer: 'inst_eng' }], isolation: { process: null, electrical: sig('elec_mgr', NOW - 2.5 * H, 'Electrical isolation done, tags provided'), safety: null } }),
+  mk({ no: 3251, tag: '07P001A', desc: 'Discharge line pressure gauge valve gasket leaking brine.', raisedBy: 'proc_op', raisedAt: NOW - 30 * H, status: 'in_progress', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 2', appointment: NOW - 2 * H,
+    sigs: [sig('proc_op', NOW - 30 * H, 'Reported'), sig('proc_eng', NOW - 29 * H, 'Report submitted'), sig('proc_mgr', NOW - 27 * H, 'Report approved'), sig('maint_mgr', NOW - 22 * H, 'Ticket approved, appointment set'), sig('mech_mgr', NOW - 21 * H, 'Assigned Rami D.')],
+    jobs: [{ engineer: 'mech_eng', started: NOW - 1.5 * H }], isolation: { process: sig('proc_eng', NOW - 2 * H, 'Process isolation done'), electrical: sig('elec_mgr', NOW - 1.9 * H, 'Electrical isolation done, tags provided'), safety: null } }),
+  mk({ no: 3247, tag: '27P003A', desc: 'Suction diaphragm valve stub end is leaking. Temporary clamp fitted; needs line replacement.', raisedBy: 'proc_eng', raisedAt: NOW - 6 * D, status: 'held', sectors: ['Mechanical'], safetyClass: 'II', priority: 'Class 1', shutdown: true, est: '3 hrs', unit: 'Hypo',
+    sigs: [sig('proc_eng', NOW - 6 * D, 'Reported'), sig('proc_eng', NOW - 6 * D, 'Report submitted'), sig('proc_sup', NOW - 5.8 * D, 'Report approved'), sig('maint_mgr', NOW - 5 * D, 'Approved, held for shutdown')] }),
+  mk({ no: 3246, tag: '06P001A', desc: 'Suction line valve is stuck; cannot be fully closed for isolation.', raisedBy: 'proc_op', raisedAt: NOW - 9 * D, status: 'held', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 1', shutdown: true, est: '3 hrs',
+    sigs: [sig('proc_op', NOW - 9 * D, 'Reported'), sig('proc_eng', NOW - 9 * D, 'Report submitted'), sig('proc_sup', NOW - 8.7 * D, 'Report approved'), sig('maint_mgr', NOW - 8 * D, 'Approved, held for shutdown')] }),
+  mk({ no: 3240, tag: '24P3101A', desc: 'CCU cooling pump: mechanical seal to be replaced; spare on order.', raisedBy: 'proc_eng', raisedAt: NOW - 12 * D, status: 'held', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 2', shutdown: true, est: '5 hrs',
+    sigs: [sig('proc_eng', NOW - 12 * D, 'Reported'), sig('proc_eng', NOW - 12 * D, 'Report submitted'), sig('proc_mgr', NOW - 11.5 * D, 'Report approved'), sig('maint_mgr', NOW - 11 * D, 'Approved, held for shutdown')] }),
+  mk({ no: 3239, tag: '30P001A', desc: 'Feed water pump 6T boiler: discharge check valve passing; boiler level hunting.', raisedBy: 'proc_eng', raisedAt: NOW - 14 * D, status: 'held', sectors: ['Mechanical', 'Instrumentation'], safetyClass: 'I', priority: 'Class 2', shutdown: true, est: '4 hrs',
+    sigs: [sig('proc_eng', NOW - 14 * D, 'Reported'), sig('proc_eng', NOW - 14 * D, 'Report submitted'), sig('proc_sup', NOW - 13.5 * D, 'Report approved'), sig('maint_mgr', NOW - 13 * D, 'Approved, held for shutdown')] }),
+  mk({ no: 3245, tag: '76P004A', desc: 'High discharge pressure alarm does not trigger on DCS; transmitter suspected.', raisedBy: 'proc_op', raisedAt: NOW - 3 * D, status: 'maint_approved', sectors: ['Instrumentation'], safetyClass: 'I', priority: 'Class 2', appointment: NOW - 2 * D,
+    sigs: [sig('proc_op', NOW - 3 * D, 'Reported'), sig('proc_eng', NOW - 2.9 * D, 'Report submitted'), sig('proc_sup', NOW - 2.8 * D, 'Report approved'), sig('maint_mgr', NOW - 2.5 * D, 'Ticket approved, appointment set'), sig('inst_mgr', NOW - 2.4 * D, 'Assigned Sami W.'), sig('inst_eng', NOW - 1.8 * D, 'Job finished'), sig('inst_mgr', NOW - 1.5 * D, 'Work checked'), sig('maint_mgr', NOW - 1 * D, 'Final approval')],
+    jobs: [{ engineer: 'inst_eng', started: NOW - 2 * D, actions: 'Transmitter PT-7604A loop checked; drifted 1.8 bar. Recalibrated and alarm tested at 22 bar.', parts: '', finishedSig: sig('inst_eng', NOW - 1.8 * D, 'Job finished'), approvedSig: sig('inst_mgr', NOW - 1.5 * D, 'Work checked') }],
+    isolation: { process: sig('proc_eng', NOW - 2 * D, 'Process isolation done'), electrical: sig('elec_mgr', NOW - 2 * D, 'Electrical isolation done'), safety: null } }),
+];
+// closed history for the dashboard
+const HIST = [
+  ['25P001D', 'Mechanical', 3, 4.0, 'Gland packing replaced, shaft sleeve checked', 'Packing set 25P001D x1', 'proc_op'],
+  ['13P001A', 'Electrical', 6, 2.5, 'Terminal box moisture; cleaned, dried, re-terminated', '', 'proc_eng'],
+  ['74P002A', 'Mechanical', 9, 7.0, 'Bearing DE replaced, alignment corrected', 'Bearing 6310 x2, Grease', 'proc_op'],
+  ['71P001A', 'Instrumentation', 11, 3.0, 'Flow switch FS-7101 replaced', 'Flow switch x1', 'proc_op'],
+  ['23P001B', 'Mechanical', 13, 5.5, 'Mechanical seal replaced', 'Mech seal 23P001 x1', 'proc_eng'],
+  ['17P004A', 'Electrical', 16, 3.5, 'Contactor replaced in MCC', 'Contactor 32A x1', 'proc_op'],
+  ['76P002A', 'Mechanical', 18, 2.0, 'Coupling element replaced', 'Coupling insert x1', 'proc_op'],
+  ['41P1002', 'Instrumentation', 21, 4.5, 'Pressure gauge and isolation valve replaced', 'Gauge 0-10 bar x1', 'proc_eng'],
+  ['27P001A', 'Electrical', 24, 6.0, 'Motor rewound by contractor, reinstalled', 'Motor 7.5 kW (rewind)', 'proc_op'],
+  ['75P001A', 'Mechanical', 27, 8.5, 'Impeller cleaned, wear ring replaced', 'Wear ring x1', 'proc_eng'],
+  ['07P001B', 'Electrical', 30, 2.0, 'Cable gland sealed, insulation tested', '', 'proc_op'],
+  ['29P001A', 'Mechanical', 33, 4.0, 'HCl pump: PTFE bellows seal replaced', 'Bellows seal x1', 'proc_op'],
+];
+HIST.forEach(([tag, sector, daysAgo, hrs, actions, parts, by], i) => {
+  const t0 = NOW - daysAgo * D, ap = t0 + 20 * H, fin = ap + hrs * H;
+  ORDERS.push(mk({ no: 3244 - i, tag, desc: actions.split(';')[0].split(',')[0] + ' (reported)', raisedBy: by, raisedAt: t0, status: 'closed', sectors: [sector], safetyClass: i % 4 === 0 ? 'II' : 'I', priority: i % 3 === 0 ? 'Class 1' : 'Class 2', appointment: ap, closedAt: fin + 3 * H, downtime: hrs,
+    sigs: [sig(by, t0, 'Reported'), sig('proc_eng', t0 + H, 'Report submitted'), sig('proc_sup', t0 + 3 * H, 'Report approved'), sig('maint_mgr', t0 + 8 * H, 'Ticket approved, appointment set'), sig(MGR[sector], t0 + 9 * H, 'Assigned'), sig(ENG[sector], fin, 'Job finished'), sig(MGR[sector], fin + H, 'Work checked'), sig('maint_mgr', fin + 2 * H, 'Final approval'), sig('proc_sup', fin + 3 * H, 'Fix confirmed')],
+    jobs: [{ engineer: ENG[sector], started: ap, actions, parts, finishedSig: sig(ENG[sector], fin, 'Job finished'), approvedSig: sig(MGR[sector], fin + H, 'Work checked') }],
+    isolation: { process: sig('proc_eng', ap, 'Process isolation done'), electrical: sig('elec_mgr', ap, 'Electrical isolation done'), safety: i % 4 === 0 ? sig('safety', ap, 'Safety clearance') : null } }));
+});
+// preventive orders
+ORDERS.push(mk({ no: 618, type: 'PMO', pmType: 'Monthly', tag: '02P001A', desc: 'Monthly preventive maintenance: pump checklist (8 items).', raisedBy: 'system', raisedAt: NOW - 20 * H, status: 'scheduled', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 2', appointment: NOW + 20 * H, checklist: PUMP_CHECKLIST.map(c => ({ c, done: false })),
+  sigs: [sig('system', NOW - 20 * H, 'PMO raised by schedule'), sig('proc_eng', NOW - 18 * H, 'Standby pump 02P001B set Online'), sig('proc_sup', NOW - 16 * H, 'Report approved'), sig('maint_mgr', NOW - 10 * H, 'Appointment set')] }));
+ORDERS.push(mk({ no: 617, type: 'PMO', pmType: 'Monthly', tag: '04P001A', desc: 'Monthly preventive maintenance: pump checklist (8 items).', raisedBy: 'system', raisedAt: NOW - 6 * D, status: 'closed', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 2', appointment: NOW - 5 * D, closedAt: NOW - 5 * D + 5 * H, downtime: 2, checklist: PUMP_CHECKLIST.map(c => ({ c, done: true })),
+  sigs: [sig('system', NOW - 6 * D, 'PMO raised by schedule'), sig('proc_eng', NOW - 5.9 * D, 'Standby set Online'), sig('proc_sup', NOW - 5.8 * D, 'Report approved'), sig('maint_mgr', NOW - 5.5 * D, 'Appointment set'), sig('mech_mgr', NOW - 5.4 * D, 'Assigned Rami D.'), sig('mech_eng', NOW - 5 * D + 2 * H, 'Job finished'), sig('mech_mgr', NOW - 5 * D + 3 * H, 'Work checked'), sig('maint_mgr', NOW - 5 * D + 4 * H, 'Final approval'), sig('proc_sup', NOW - 5 * D + 5 * H, 'Fix confirmed')],
+  jobs: [{ engineer: 'mech_eng', started: NOW - 5 * D, actions: 'Checklist completed. Oil topped up 0.2 L. Coupling OK.', parts: 'Lube oil 0.2 L', finishedSig: sig('mech_eng', NOW - 5 * D + 2 * H, 'Job finished'), approvedSig: sig('mech_mgr', NOW - 5 * D + 3 * H, 'Work checked') }],
+  isolation: { process: sig('proc_eng', NOW - 5 * D, 'Process isolation done'), electrical: sig('elec_mgr', NOW - 5 * D, 'Electrical isolation done'), safety: null } }));
+// equipment status from open orders
+ORDERS.forEach(o => { const p = byTag(o.tag); if (!p) return; if (['isolated', 'in_progress', 'finished', 'sector_approved', 'maint_approved'].includes(o.status)) p.status = 'Isolated'; else if (o.status === 'assigned' || o.priority === 'Class 1' && ['open', 'scheduled'].includes(o.status)) p.status = 'Offline'; });
+if (byTag('02P001A')) byTag('02P001A').status = 'Offline';
+const PM_DONE = { '04P001A': 1, '07P001A': 1, '13P001A': 1, '17P001A': 1, '23P001A': 1, '25P001D': 1, '74P002A': 1, '06P001B': 1, '17P004A': 1, '25P001B': 1, '23P001B': 1 };
+const PM_STATS = { Mechanical: [38, 41], Electrical: [12, 14], Instrumentation: [9, 9] };
+
+/* ===================== helpers ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = t => new Date(t).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtD = t => new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function ago(t) { const m = Math.round((Date.now() - t) / 60000); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 24) return h + ' h ago'; return Math.round(h / 24) + ' d ago'; }
+const pill = (st) => { const [t, c] = STATUS[st]; return `<span class="pill ${c}">${t}</span>`; };
+const epill = s => `<span class="pill ${s === 'Online' ? 'ok' : s === 'Offline' ? 'warn' : 'crit'}">${s}</span>`;
+const stag = s => `<span class="tag ${SC[s]}">${s}</span>`;
+const uname = id => id === 'system' ? 'System (schedule)' : (U(id) ? `${U(id).name}, ${U(id).pos}` : id);
+const sigHtml = s => s ? `<span class="sig"><b>${esc(U(s.user) ? U(s.user).name : 'System')}</b> <span class="muted">${esc(s.label)} · ${fmt(s.at)}</span></span>` : '';
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 3000); }
+const isOverdue = o => o.appointment && o.status !== 'closed' && o.status !== 'held' && Date.now() - o.appointment > 8 * H;
+const stepIdx = o => STEP_ORDER.indexOf(o.status === 'held' ? 'open' : o.status);
+let me = 'maint_mgr';
+const ME = () => U(me);
+const full = () => me === 'gm';
+const can = (...roles) => full() || roles.includes(me);
+
+/* ===================== pending actions per role ===================== */
+function pendingFor(o, uid) {
+  const u = U(uid); if (!u) return null; const f = uid === 'gm';
+  switch (o.status) {
+    case 'reported': return (f || uid === 'proc_eng') ? 'Classify and submit report' : null;
+    case 'classified': return (f || uid === 'proc_sup' || uid === 'proc_mgr') ? 'Approve report' : null;
+    case 'open': return (f || uid === 'maint_mgr') ? 'Review ticket' : null;
+    case 'held': return (f || uid === 'maint_mgr') ? 'Waiting for shutdown' : null;
+    case 'scheduled': { const j = o.jobs.find(j => !j.engineer && (f || MGR[j.sector] === uid)); return j ? `Assign ${j.sector} engineer` : null; }
+    case 'assigned': {
+      if (!o.isolation.process && (f || uid === 'proc_eng')) return 'Sign process isolation';
+      if (!o.isolation.electrical && (f || uid === 'elec_mgr')) return 'Sign electrical isolation';
+      if (o.safetyClass === 'II' && !o.isolation.safety && (f || uid === 'safety')) return 'Sign Class II safety clearance';
+      return null; }
+    case 'isolated': case 'in_progress': { const j = o.jobs.find(j => !j.finishedSig && (f || j.engineer === uid)); return j ? (j.started ? 'Record work and finish' : 'Start job') : null; }
+    case 'finished': { const j = o.jobs.find(j => j.finishedSig && !j.approvedSig && (f || MGR[j.sector] === uid)); return j ? `Check ${j.sector} work` : null; }
+    case 'sector_approved': return (f || uid === 'maint_mgr') ? 'Final approval' : null;
+    case 'maint_approved': return (f || uid === 'proc_sup' || uid === 'proc_mgr') ? 'Confirm the fix' : null;
+  }
+  return null;
+}
+function refreshBadges() {
+  const n = ORDERS.filter(o => pendingFor(o, me) && o.status !== 'held').length;
+  const b = $('#b-orders'); b.hidden = !n; b.textContent = n;
+  const s = ORDERS.filter(o => o.status === 'held').length; $('#b-shut').hidden = !s; $('#b-shut').textContent = s;
+  const pm = pmRows().filter(r => r.state === 'overdue').length; $('#b-pm').hidden = !pm; $('#b-pm').textContent = pm;
+}
+
+/* ===================== PM schedule ===================== */
+const DAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thr: 4, Thu: 4, Fri: 5, Sat: 6 };
+function pmDate(c, y, m) { const d = new Date(y, m, 1 + (c.week - 1) * 7); while (d.getDay() !== DAYS[c.day]) d.setDate(d.getDate() + 1); return d; }
+function pmRows() {
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth(); const out = [];
+  PUMPS.forEach((p, i) => {
+    const c = CAL[p.tag]; if (!c) return;
+    let due = pmDate(c, y, m), month = m;
+    // demo: tasks whose date has passed count as done, except every 6th pump, which is left overdue
+    const done = PM_DONE[p.tag] || (due < now - D && i % 6 !== 0) || ORDERS.some(o => o.type === 'PMO' && o.tag === p.tag && o.status === 'closed' && o.closedAt > new Date(y, m, 1));
+    if (done) { due = pmDate(c, y, m + 1); month = m + 1; }
+    const openPmo = ORDERS.find(o => o.type === 'PMO' && o.tag === p.tag && o.status !== 'closed');
+    const left = (due - now) / D;
+    const state = openPmo ? 'raised' : done ? 'done' : left < 0 ? 'overdue' : left <= 7 ? 'due' : 'later';
+    out.push({ p, c, due, type: c.six.includes(((month % 12) + 12) % 12 + 1) ? 'Six-monthly' : 'Monthly', state, openPmo, days: Math.round(left) });
+  });
+  return out.sort((a, b) => a.due - b.due);
+}
+
+/* ===================== routing ===================== */
+const VIEWS = { overview: 'Overview', orders: 'Work Orders', shutdown: 'Shutdown List', pm: 'PM Schedule', assets: 'Assets', scan: 'Scan QR' };
+let view = 'overview', sub = null;
+function go(v, s) { view = VIEWS[v] ? v : 'overview'; sub = s || null; if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view); render(); }
+window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v !== view) { view = VIEWS[v] ? v : 'overview'; sub = null; render(); } });
+function render() {
+  document.querySelectorAll('nav.side a').forEach(a => a.toggleAttribute('aria-current', a.dataset.v === view) || a.setAttribute('aria-current', a.dataset.v === view ? 'page' : 'false'));
+  document.querySelectorAll('nav.side a').forEach(a => { if (a.dataset.v !== view) a.removeAttribute('aria-current'); });
+  $('#title').textContent = VIEWS[view];
+  refreshBadges();
+  ({ overview: rOverview, orders: rOrders, shutdown: rShutdown, pm: rPM, assets: rAssets, scan: rScan })[view]();
+  window.scrollTo(0, 0);
+}
+
+/* ===================== overview ===================== */
+function rOverview() {
+  const open = ORDERS.filter(o => o.status !== 'closed'), closed = ORDERS.filter(o => o.status === 'closed' && o.type === 'CMO');
+  const overdue = open.filter(isOverdue), held = open.filter(o => o.status === 'held');
+  const mttr = closed.length ? closed.reduce((s, o) => s + o.downtime, 0) / closed.length : 0;
+  const pmT = Object.values(PM_STATS).reduce((s, [a, b]) => [s[0] + a, s[1] + b], [0, 0]);
+  const crit = open.filter(o => o.priority === 'Class 1' && o.status !== 'held').length;
+  const bars = [['Reported / awaiting approval', ['reported', 'classified']], ['Ticket open / scheduled', ['open', 'scheduled']], ['Awaiting isolation', ['assigned']], ['In progress', ['isolated', 'in_progress']], ['Awaiting approvals', ['finished', 'sector_approved', 'maint_approved']], ['Held for shutdown', ['held']]].map(([l, ss]) => [l, open.filter(o => ss.includes(o.status)).length]);
+  const mx = Math.max(1, ...bars.map(b => b[1]));
+  const mine = ORDERS.filter(o => pendingFor(o, me) && o.status !== 'held');
+  $('#view').innerHTML = `
+    <div class="grid kpis" style="margin-bottom:14px">
+      <div class="card kpi"><div class="v num">${open.length}</div><div class="k">Open work orders</div><div class="d muted">${open.filter(o => o.type === 'PMO').length} preventive · ${open.length - open.filter(o => o.type === 'PMO').length} corrective</div></div>
+      <div class="card kpi ${crit ? 'crit' : ''}"><div class="v num">${crit}</div><div class="k">Class 1 priority, active</div></div>
+      <div class="card kpi ${overdue.length ? 'crit' : 'good'}"><div class="v num">${overdue.length}</div><div class="k">Overdue (past appointment)</div></div>
+      <div class="card kpi"><div class="v num">${mttr.toFixed(1)} h</div><div class="k">MTTR, last 30 days</div><div class="d muted">appointment to job finished</div></div>
+      <div class="card kpi good"><div class="v num">${Math.round(pmT[0] / pmT[1] * 100)}%</div><div class="k">PM compliance, this month</div><div class="d muted">${pmT[0]} of ${pmT[1]} tasks on time</div></div>
+      <div class="card kpi ${held.length ? 'warn' : ''}"><div class="v num">${held.length}</div><div class="k">Held for shutdown</div></div>
+    </div>
+    <div class="grid two" style="margin-bottom:14px">
+      <div class="card"><h3>Open orders by stage <span>${open.length} total</span></h3><div class="bars">${bars.map(([l, n]) => `<div class="bar"><span>${l}</span><i style="width:${n / mx * 100}%"></i><b class="num">${n}</b></div>`).join('')}</div></div>
+      <div class="card"><h3>Your pending actions <span>${ME().pos}</span></h3>${mine.length ? `<div class="hist">${mine.map(o => `<div class="it"><span class="mono">#${o.no}</span><span><b>${esc(pendingFor(o, me))}</b><br><span class="muted">${esc(byTag(o.tag)?.name || o.tag)} · ${o.tag}</span></span><button class="btn sm" data-open="${o.no}">Open</button></div>`).join('')}</div>` : '<p class="empty">Nothing waits on you. Switch role at the top to see other desks.</p>'}</div>
+    </div>
+    <div class="grid three">${SECTORS.map(s => { const so = open.filter(o => o.sectors.includes(s)), sc = closed.filter(o => o.sectors.includes(s)); const m = sc.length ? sc.reduce((a, o) => a + o.downtime, 0) / sc.length : 0; const [a, b] = PM_STATS[s]; return `
+      <div class="card disc" data-s="${s}"><h3>${s} <span>${so.length} open</span></h3>
+        <div class="row"><div><div class="v num">${so.length}</div><div class="k">Open</div></div><div><div class="v num" style="color:${so.filter(isOverdue).length ? 'var(--crit)' : 'inherit'}">${so.filter(isOverdue).length}</div><div class="k">Overdue</div></div><div><div class="v num">${m.toFixed(1)}h</div><div class="k">MTTR</div></div><div><div class="v num">${so.filter(o => o.status === 'held').length}</div><div class="k">Shutdown</div></div></div>
+        <div class="pm">PM compliance <i><b style="width:${a / b * 100}%"></b></i> <span class="num">${Math.round(a / b * 100)}%</span></div></div>`; }).join('')}</div>`;
+  $('#view').querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => go('orders', +b.dataset.open)));
+}
+
+/* ===================== orders ===================== */
+let fType = 'all', fStatus = 'open', fSector = 'all';
+function rOrders() {
+  if (sub) return rOrder(sub);
+  let list = ORDERS.filter(o => fType === 'all' || o.type === fType).filter(o => fStatus === 'all' || (fStatus === 'open' ? o.status !== 'closed' : fStatus === 'mine' ? pendingFor(o, me) && o.status !== 'held' : o.status === fStatus)).filter(o => fSector === 'all' || o.sectors.includes(fSector));
+  list.sort((a, b) => (b.status === 'closed' ? b.closedAt : b.raisedAt) - (a.status === 'closed' ? a.closedAt : a.raisedAt));
+  $('#view').innerHTML = `
+    <div class="toolbar">
+      <select id="ft"><option value="all">All types</option><option value="CMO">CMO</option><option value="PMO">PMO</option></select>
+      <select id="fs"><option value="open">Open</option><option value="mine">Waiting on me</option><option value="all">All</option>${Object.keys(STATUS).map(k => `<option value="${k}">${STATUS[k][0]}</option>`).join('')}</select>
+      <select id="fx"><option value="all">All sectors</option>${SECTORS.map(s => `<option>${s}</option>`).join('')}</select>
+      <span class="sp"></span><span class="muted">${list.length} orders</span>
+    </div>
+    <div class="tablew"><table><thead><tr><th>No.</th><th>Type</th><th>Equipment</th><th>Description</th><th>Sector</th><th>Priority</th><th>Status</th><th>Raised</th><th>Your action</th></tr></thead><tbody>
+      ${list.map(o => { const p = byTag(o.tag); const act = pendingFor(o, me); return `<tr class="click" data-no="${o.no}"><td class="mono">${o.type === 'PMO' ? 'P-' : ''}${o.no}</td><td>${o.type}</td><td><b>${esc(p ? p.name : o.tag)}</b><br><span class="mono muted">${o.tag}</span> <span class="muted">· ${esc(p ? p.unit : '')}</span></td><td style="max-width:320px">${esc(o.desc)}${o.shutdown ? ' <span class="tag">shutdown</span>' : ''}</td><td>${o.sectors.map(stag).join(' ') || '<span class="muted">—</span>'}</td><td><span class="pill ${o.priority === 'Class 1' ? 'crit' : ''}">${o.priority}</span><br><span class="muted" style="font-size:11.5px">Safety ${o.safetyClass}</span></td><td>${pill(o.status)}${isOverdue(o) ? '<br><span class="pill crit">overdue</span>' : ''}</td><td class="muted">${ago(o.raisedAt)}</td><td>${act && o.status !== 'held' ? `<span class="pill acc">${act}</span>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">No orders match.</td></tr>'}
+    </tbody></table></div>`;
+  $('#ft').value = fType; $('#fs').value = fStatus; $('#fx').value = fSector;
+  $('#ft').onchange = e => { fType = e.target.value; rOrders(); }; $('#fs').onchange = e => { fStatus = e.target.value; rOrders(); }; $('#fx').onchange = e => { fSector = e.target.value; rOrders(); };
+  $('#view').querySelectorAll('tr[data-no]').forEach(r => r.addEventListener('click', () => go('orders', +r.dataset.no)));
+}
+
+/* ---------- order detail ---------- */
+let draft = {};
+function rOrder(no) {
+  const o = ORDERS.find(x => x.no === no); if (!o) return go('orders');
+  const p = byTag(o.tag); const idx = stepIdx(o);
+  const needSafety = o.safetyClass === 'II';
+  $('#view').innerHTML = `
+    <button class="btn ghost sm" id="back">← Work orders</button>
+    <div class="order-head" style="margin-top:12px">
+      <h2>${o.type === 'PMO' ? 'PMO' : 'CMO'} <span class="mono">#${o.no}</span> · ${esc(p ? p.name : o.tag)}</h2>
+      <div class="meta">${pill(o.status)}${isOverdue(o) ? '<span class="pill crit">overdue</span>' : ''}<span class="pill ${o.priority === 'Class 1' ? 'crit' : ''}">${o.priority}</span><span class="pill">Safety Class ${o.safetyClass}</span>${o.shutdown ? '<span class="pill warn">needs shutdown</span>' : ''}${o.sectors.map(stag).join(' ')}</div>
+    </div>
+    <div class="grid detail">
+      <div class="grid" style="gap:14px">
+        <div class="card">
+          <h3>Order details <span>${o.type === 'PMO' ? 'raised by schedule' : 'form FSOP 21-2'}</span></h3>
+          <dl class="dl"><dt>Equipment</dt><dd><a href="#assets" data-asset="${o.tag}"><b>${esc(p ? p.name : o.tag)}</b></a> · <span class="mono">${o.tag}</span> · ${esc(p ? p.unit : '')}, zone ${p ? p.zone : '?'} · ${p ? epill(p.status) : ''}</dd>
+          <dt>Raised by</dt><dd>${esc(uname(o.raisedBy))} · ${fmt(o.raisedAt)}</dd>
+          <dt>Description</dt><dd>${esc(o.desc)}</dd>
+          ${o.pmType ? `<dt>Type of PM</dt><dd>${o.pmType}</dd>` : ''}
+          ${o.appointment ? `<dt>Appointment</dt><dd>${fmt(o.appointment)}${o.est ? ` · est. ${o.est}` : ''}</dd>` : ''}
+          ${o.closedAt ? `<dt>Closed</dt><dd>${fmt(o.closedAt)} · downtime ${o.downtime} h</dd>` : ''}</dl>
+          ${o.photos.length ? `<div class="att">${o.photos.map(s => `<img src="${s}" alt="attachment">`).join('')}</div>` : ''}
+          ${o.notes.map(n => `<div class="note"><b>${esc(uname(n.by))}:</b> ${esc(n.text)}</div>`).join('')}
+          ${o.rejected ? `<div class="note" style="color:var(--crit)"><b>Rejected by ${esc(uname(o.rejected.by))}:</b> ${esc(o.rejected.text)}</div>` : ''}
+          <div style="margin-top:12px"><button class="btn${o.status === 'closed' ? '' : ' ghost'}" id="report">${o.status === 'closed' ? 'View signed report' : 'View order form (signatures so far)'}</button></div>
+        </div>
+        ${o.checklist ? `<div class="card"><h3>PM checklist <span>${o.checklist.filter(c => c.done).length} of ${o.checklist.length}</span></h3>${o.checklist.map((c, i) => `<label class="check"><input type="checkbox" data-ck="${i}" ${c.done ? 'checked' : ''} ${canTick(o) ? '' : 'disabled'}> ${esc(c.c)}</label>`).join('')}</div>` : ''}
+        ${idx >= 3 ? `<div class="card"><h3>Safety clearance and isolation <span>Class ${o.safetyClass}</span></h3>
+          <div class="job"><div class="h">Process isolation ${o.isolation.process ? '<span class="pill ok">signed</span>' : '<span class="pill warn">pending</span>'}</div><div class="b">${sigHtml(o.isolation.process) || '<span class="muted">Process Engineer</span>'}</div></div>
+          <div class="job"><div class="h">Electrical isolation and tags ${o.isolation.electrical ? '<span class="pill ok">signed</span>' : '<span class="pill warn">pending</span>'}</div><div class="b">${sigHtml(o.isolation.electrical) || '<span class="muted">Head of Electrical Department</span>'}</div></div>
+          ${needSafety ? `<div class="job"><div class="h">Class II safety clearance ${o.isolation.safety ? '<span class="pill ok">signed</span>' : '<span class="pill warn">pending</span>'}</div><div class="b">${sigHtml(o.isolation.safety) || '<span class="muted">Head of Safety Department</span>'}${o.safetyNote ? `<div class="note">${esc(o.safetyNote)}</div>` : ''}</div></div>` : ''}</div>` : ''}
+        ${o.jobs.length && idx >= 3 ? `<div class="card"><h3>Jobs by sector <span>${o.jobs.length}</span></h3>${o.jobs.map(j => `<div class="job"><div class="h">${stag(j.sector)} ${j.engineer ? esc(U(j.engineer).name) : '<span class="muted">not assigned</span>'} ${j.approvedSig ? '<span class="pill ok">checked</span>' : j.finishedSig ? '<span class="pill acc">finished</span>' : j.started ? '<span class="pill acc">in progress</span>' : ''}</div>
+          ${j.started ? `<div class="b muted">Started ${fmt(j.started)}</div>` : ''}${j.actions ? `<div class="b"><b>Actions:</b> ${esc(j.actions)}</div>` : ''}${j.parts ? `<div class="b"><b>Spare parts (warehouse order no.):</b> ${esc(j.parts)}</div>` : ''}${j.photos && j.photos.length ? `<div class="att">${j.photos.map(s => `<img src="${s}" alt="">`).join('')}</div>` : ''}<div class="b">${sigHtml(j.finishedSig)} ${sigHtml(j.approvedSig)}</div></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="grid" style="gap:14px">
+        <div id="actionbox"></div>
+        <div class="card"><h3>Progress and signatures <span>${o.sigs.length} signed</span></h3><div class="steps">${STEPS.map(([k, t, who], i) => { const st = o.status === 'held' && k === 'scheduled' ? 'now' : i < idx || o.status === 'closed' ? 'done' : i === idx ? 'now' : ''; const ss = o.sigs.filter(s => stepSig(s, k)); return `<div class="step ${st}"><i>${st === 'done' ? '✓' : i + 1}</i><div><div class="t">${t}${o.status === 'held' && k === 'scheduled' ? ' <span class="pill">held</span>' : ''}</div><div class="s">${who}</div>${ss.map(sigHtml).join('')}</div></div>`; }).join('')}</div></div>
+      </div>
+    </div>`;
+  $('#back').onclick = () => go('orders');
+  $('#view').querySelectorAll('[data-asset]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go('assets', a.dataset.asset); }));
+  if ($('#report')) $('#report').onclick = () => showReport(o);
+  $('#view').querySelectorAll('[data-ck]').forEach(c => c.addEventListener('change', () => { o.checklist[+c.dataset.ck].done = c.checked; }));
+  renderAction(o);
+}
+const canTick = o => ['isolated', 'in_progress'].includes(o.status) && o.jobs.some(j => j.engineer === me || full());
+function stepSig(s, k) {
+  const L = s.label;
+  return { reported: /Reported|raised/.test(L), classified: /Report submitted|Standby/.test(L), open: /Report approved/.test(L), scheduled: /appointment|held for shutdown|Appointment/.test(L), assigned: /^Assigned/.test(L), isolated: false, in_progress: false, finished: /Job finished/.test(L), sector_approved: /Work checked/.test(L), maint_approved: /Final approval/.test(L), closed: /Fix confirmed/.test(L) }[k];
+}
+function signBlock(label) { return `<div class="pin"><input type="password" inputmode="numeric" maxlength="4" id="pin" placeholder="PIN" aria-label="Signature PIN"><span class="muted" style="font-size:12px">Enter your 4-digit PIN to sign as <b>${esc(ME().name)}</b> (demo: any 4 digits)</span></div><p class="err" id="aerr" hidden></p>`; }
+function pinOk() { const v = ($('#pin')?.value || '').trim(); if (!/^\d{4}$/.test(v)) { const e = $('#aerr'); e.textContent = 'Enter a 4-digit PIN to sign.'; e.hidden = false; return false; } return true; }
+function sign(o, label) { o.sigs.push(sig(me, Date.now(), label)); return o.sigs[o.sigs.length - 1]; }
+
+function renderAction(o) {
+  const box = $('#actionbox'); const act = pendingFor(o, me); const p = byTag(o.tag);
+  if (!act) { box.innerHTML = `<div class="card"><h3>Your action <span>${esc(ME().pos)}</span></h3><p class="empty">${o.status === 'closed' ? 'This order is closed.' : o.status === 'held' ? 'Held until a shutdown is set by the Maintenance Manager.' : 'Nothing for your role at this step. Switch role at the top to continue the demo.'}</p></div>`; return; }
+  let html = '', after = () => {};
+  const S = o.status;
+  if (S === 'reported') {
+    draft = { sectors: [], cls: 'I', pr: 'Class 2', sd: false };
+    html = `<div class="field"><span class="label">Sector(s) responsible</span><div class="chips" id="secs">${SECTORS.map(s => `<button type="button" data-v="${s}" aria-pressed="false">${s}</button>`).join('')}</div></div>
+      <div class="field"><span class="label">Safety clearance</span><div class="chips" id="cls"><button type="button" data-v="I" aria-pressed="true">Class I: electrical + process isolation</button><button type="button" data-v="II" aria-pressed="false">Class II: + Safety Department</button></div></div>
+      <div class="field"><span class="label">Priority</span><div class="chips" id="pr"><button type="button" data-v="Class 1" aria-pressed="false">Class 1 (urgent)</button><button type="button" data-v="Class 2" aria-pressed="true">Class 2 (normal)</button></div></div>
+      <label class="check"><input type="checkbox" id="sd"> Job needs a plant / unit shutdown</label>
+      <div class="field"><label for="rep">Engineer's report</label><textarea id="rep" placeholder="Findings, probable cause, what maintenance should prepare"></textarea></div>
+      <div class="field"><label for="tct">Tentative completion time (hours)</label><input type="text" id="tct" inputmode="decimal" placeholder="e.g. 4"></div>
+      ${signBlock()}<button class="btn" id="do">Submit report and sign</button>`;
+    after = () => {
+      const pick = (id, key, multi) => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { if (multi) { const i = draft.sectors.indexOf(b.dataset.v); i < 0 ? draft.sectors.push(b.dataset.v) : draft.sectors.splice(i, 1); b.setAttribute('aria-pressed', i < 0); } else { draft[key] = b.dataset.v; $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); } });
+      pick('#secs', 'sectors', true); pick('#cls', 'cls'); pick('#pr', 'pr');
+      $('#do').onclick = () => {
+        const e = $('#aerr'); if (!draft.sectors.length) { e.textContent = 'Select at least one sector.'; e.hidden = false; return; }
+        if ($('#rep').value.trim().length < 5) { e.textContent = 'Write the engineer\'s report.'; e.hidden = false; return; } if (!pinOk()) return;
+        o.sectors = [...draft.sectors]; o.jobs = o.sectors.map(s => ({ sector: s, engineer: null, actions: '', parts: '', started: null, finishedSig: null, approvedSig: null }));
+        o.safetyClass = draft.cls; o.priority = draft.pr; o.shutdown = $('#sd').checked; o.est = $('#tct').value ? $('#tct').value + ' hrs' : ''; o.rejected = null;
+        o.notes.push({ by: me, text: 'Report: ' + $('#rep').value.trim() }); sign(o, 'Report submitted'); o.status = 'classified';
+        if (o.priority === 'Class 1' && p) p.status = 'Offline';
+        toast(`Report submitted and signed. Ticket waits for Process Supervisor approval.`); rOrder(o.no);
+      };
+    };
+  } else if (S === 'classified') {
+    html = `<div class="field"><label for="nt">Notes to the engineer's report (optional)</label><textarea id="nt"></textarea></div>${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Approve and sign</button><button class="btn danger" id="rej">Reject</button></div>`;
+    after = () => {
+      $('#do').onclick = () => { if (!pinOk()) return; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); sign(o, 'Report approved'); o.status = 'open'; toast('Ticket opened and sent to the Maintenance Manager.'); rOrder(o.no); };
+      $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write the reason in the notes before rejecting.'; $('#aerr').hidden = false; return; } o.rejected = { by: me, text: n }; o.status = 'reported'; toast('Returned to the Process Engineer.'); rOrder(o.no); };
+    };
+  } else if (S === 'open' || S === 'held') {
+    const dflt = new Date(Date.now() + 18 * H); dflt.setMinutes(0);
+    html = `${S === 'held' ? '<p class="muted" style="margin:0 0 10px">This job is on the shutdown list. Set an appointment when the shutdown is planned.</p>' : ''}
+      <div class="field"><label for="apt">Maintenance appointment</label><input type="datetime-local" id="apt" value="${new Date(dflt - dflt.getTimezoneOffset() * 60000).toISOString().slice(0, 16)}"></div>
+      <div class="field"><label for="nt">Notes (re-identification, reason for rejection)</label><textarea id="nt"></textarea></div>${signBlock()}
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Approve, set appointment, sign</button>${S === 'open' && o.shutdown ? '<button class="btn ghost" id="hold">Approve and hold for shutdown</button>' : ''}${S === 'open' ? '<button class="btn danger" id="rej">Reject</button>' : ''}</div>`;
+    after = () => {
+      $('#do').onclick = () => { if (!pinOk()) return; o.appointment = new Date($('#apt').value).getTime() || Date.now() + 18 * H; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); sign(o, 'Ticket approved, appointment set'); o.status = 'scheduled'; toast(`Appointment set. Process${o.safetyClass === 'II' ? ', Electrical and Safety' : ' and Electrical'} notified; sector managers asked to assign engineers.`); rOrder(o.no); };
+      if ($('#hold')) $('#hold').onclick = () => { if (!pinOk()) return; sign(o, 'Approved, held for shutdown'); o.status = 'held'; toast('Added to the shutdown list.'); rOrder(o.no); };
+      if ($('#rej')) $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write the reason before rejecting.'; $('#aerr').hidden = false; return; } o.rejected = { by: me, text: n }; o.status = 'classified'; toast('Returned to Process for re-identification.'); rOrder(o.no); };
+    };
+  } else if (S === 'scheduled') {
+    const jobs = o.jobs.filter(j => !j.engineer && (full() || MGR[j.sector] === me));
+    html = jobs.map((j, i) => `<div class="field"><label for="as${i}">${j.sector} engineer</label><select id="as${i}" data-sector="${j.sector}">${USERS.filter(u => u.sector === j.sector && /Engineer/.test(u.pos)).map(u => `<option value="${u.id}">${u.name}</option>`).join('')}</select></div>`).join('') + signBlock() + `<button class="btn" id="do">Assign and sign</button>`;
+    after = () => { $('#do').onclick = () => { if (!pinOk()) return; jobs.forEach((j, i) => { j.engineer = $('#as' + i).value; sign(o, `Assigned ${U(j.engineer).name}`); }); if (o.jobs.every(j => j.engineer)) o.status = 'assigned'; toast('Engineers assigned and notified. Isolation signatures now required.'); rOrder(o.no); }; };
+  } else if (S === 'assigned') {
+    const which = !o.isolation.process && (full() || me === 'proc_eng') ? 'process' : !o.isolation.electrical && (full() || me === 'elec_mgr') ? 'electrical' : 'safety';
+    const lab = { process: 'Process isolation done', electrical: 'Electrical isolation done, tags provided', safety: 'Safety clearance given' }[which];
+    html = `<p class="muted" style="margin:0 0 10px">Appointment ${o.appointment ? fmt(o.appointment) : ''}. ${which === 'safety' ? 'Class II: Safety Department confirms gas test, PPE and precautions.' : 'Confirm on site, then sign.'}</p>
+      ${which === 'electrical' ? '<label class="check"><input type="checkbox" id="c1"> Electrical isolation: done</label><label class="check"><input type="checkbox" id="c2"> Tags provided and applied (LOTO)</label>' : which === 'process' ? '<label class="check"><input type="checkbox" id="c1"> Process isolation: done (valves closed, line drained)</label>' : '<div class="field"><label for="sn">Safety comments</label><textarea id="sn" placeholder="Gas test result, PPE, precautions"></textarea></div>'}
+      ${signBlock()}<button class="btn" id="do">Sign ${which} ${which === 'safety' ? 'clearance' : 'isolation'}</button>`;
+    after = () => { $('#do').onclick = () => { if (which !== 'safety' && !($('#c1').checked && (!$('#c2') || $('#c2').checked))) { $('#aerr').textContent = 'Tick the isolation confirmation first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return;
+      o.isolation[which] = sig(me, Date.now(), lab); if (which === 'safety') o.safetyNote = $('#sn').value.trim();
+      const done = o.isolation.process && o.isolation.electrical && (o.safetyClass !== 'II' || o.isolation.safety);
+      if (done) { o.status = 'isolated'; if (p) p.status = 'Isolated'; toast(`All isolation signatures in. ${o.tag} is now Isolated; engineers may start.`); } else toast('Signature recorded. Waiting for the other isolation signatures.'); rOrder(o.no); }; };
+  } else if (S === 'isolated' || S === 'in_progress') {
+    const j = o.jobs.find(j => !j.finishedSig && (full() || j.engineer === me));
+    if (!j.started) { html = `<p class="muted" style="margin:0 0 10px">${stag(j.sector)} job on ${o.tag}. Equipment is isolated.</p><button class="btn" id="do">Start job</button>`; after = () => { $('#do').onclick = () => { j.started = Date.now(); o.status = 'in_progress'; toast('Job started; clock running for MTTR.'); rOrder(o.no); }; }; }
+    else { html = `<div class="field"><label for="ac">Actions taken</label><textarea id="ac">${esc(j.actions)}</textarea></div><div class="field"><label for="pt">Spare parts: warehouse order numbers</label><input type="text" id="pt" value="${esc(j.parts)}" placeholder="e.g. WH-2026-0412 mech seal x1"></div>
+      <div class="photo"><input type="file" id="ph" accept="image/*" multiple><label for="ph">+ Add completion photos</label><span id="phc">${(j.photos || []).length} attached</span></div>
+      ${o.checklist ? '<p class="muted" style="margin:8px 0 0;font-size:12px">All checklist items must be ticked before signing.</p>' : ''}${signBlock()}<button class="btn good" id="do" style="margin-top:8px">Mark job finished and sign</button>`;
+      after = () => { $('#ph').onchange = e => [...e.target.files].slice(0, 4).forEach(f => { const r = new FileReader(); r.onload = () => { (j.photos = j.photos || []).push(r.result); $('#phc').textContent = j.photos.length + ' attached'; }; r.readAsDataURL(f); });
+        $('#do').onclick = () => { j.actions = $('#ac').value.trim(); j.parts = $('#pt').value.trim(); if (j.actions.length < 5) { $('#aerr').textContent = 'Describe the actions taken.'; $('#aerr').hidden = false; return; } if (o.checklist && o.checklist.some(c => !c.done)) { $('#aerr').textContent = 'Tick every checklist item first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return;
+          j.finishedSig = sign(o, 'Job finished'); if (o.jobs.every(x => x.finishedSig)) o.status = 'finished'; toast('Job finished and signed. Sector manager asked to check.'); rOrder(o.no); }; };
+    }
+  } else if (S === 'finished') {
+    const jobs = o.jobs.filter(j => j.finishedSig && !j.approvedSig && (full() || MGR[j.sector] === me));
+    html = `<p class="muted" style="margin:0 0 10px">Check ${jobs.map(j => j.sector).join(', ')} work recorded on this order.</p><div class="field"><label for="nt">Notes</label><textarea id="nt"></textarea></div>${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Approve work and sign</button><button class="btn danger" id="rej">Send back to engineer</button></div>`;
+    after = () => { $('#do').onclick = () => { if (!pinOk()) return; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); jobs.forEach(j => j.approvedSig = sign(o, 'Work checked')); if (o.jobs.every(j => j.approvedSig)) o.status = 'sector_approved'; toast('Work checked. Maintenance Manager asked for final approval.'); rOrder(o.no); };
+      $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write what must be redone.'; $('#aerr').hidden = false; return; } jobs.forEach(j => { j.finishedSig = null; }); o.rejected = { by: me, text: n }; o.status = 'in_progress'; toast('Returned to the engineer.'); rOrder(o.no); }; };
+  } else if (S === 'sector_approved') {
+    html = `<div class="field"><label for="nt">Final comments</label><textarea id="nt"></textarea></div>${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Final approval and sign</button><button class="btn danger" id="rej">Reject</button></div>`;
+    after = () => { $('#do').onclick = () => { if (!pinOk()) return; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); sign(o, 'Final approval'); o.status = 'maint_approved'; toast('Sent to Process to confirm the fix.'); rOrder(o.no); };
+      $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write the reason.'; $('#aerr').hidden = false; return; } o.jobs.forEach(j => j.approvedSig = null); o.rejected = { by: me, text: n }; o.status = 'finished'; toast('Returned to the sector managers.'); rOrder(o.no); }; };
+  } else if (S === 'maint_approved') {
+    html = `<label class="check"><input type="checkbox" id="c1"> Trial run conducted and equipment handed over to shift</label><div class="field" style="margin-top:8px"><label for="dt">Downtime (hours)</label><input type="text" id="dt" inputmode="decimal" value="${o.appointment ? Math.max(0.5, Math.round(((o.jobs.map(j => j.finishedSig?.at || 0).reduce((a, b) => Math.max(a, b), 0) || Date.now()) - o.appointment) / H * 2) / 2) : 1}"></div>${signBlock()}<button class="btn good" id="do">Confirm fix, sign and close</button>`;
+    after = () => { $('#do').onclick = () => { if (!$('#c1').checked) { $('#aerr').textContent = 'Confirm the trial run first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return; o.downtime = parseFloat($('#dt').value) || 1; sign(o, 'Fix confirmed'); o.status = 'closed'; o.closedAt = Date.now(); if (p && !ORDERS.some(x => x !== o && x.tag === o.tag && ['isolated', 'in_progress', 'finished', 'sector_approved', 'maint_approved'].includes(x.status))) p.status = 'Online'; toast(`Order #${o.no} closed. ${o.tag} back Online. Signed report available.`); rOrder(o.no); }; };
+  }
+  box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(ME().pos)}</span></h3>${html}</div>`;
+  after();
+}
+
+/* ---------- signed report ---------- */
+function showReport(o) {
+  const p = byTag(o.tag); const find = re => o.sigs.filter(s => re.test(s.label));
+  const sb = (t, s) => `<div class="sigbox"><small>${t}</small>${s ? `<b style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:16px;color:var(--accent)">${esc(U(s.user)?.name || 'System')}</b><small>${esc(U(s.user)?.pos || '')} · ${fmt(s.at)}</small>` : '<small>—</small>'}</div>`;
+  $('#modal').innerHTML = `<div class="modal" id="mod"><div class="box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="font-size:16px">${o.status === 'closed' ? 'Signed report' : 'Order form · in progress'}</h2><div style="display:flex;gap:8px"><button class="btn sm" id="print">Print</button><button class="btn ghost sm" id="close">Close</button></div></div>
+    <div class="report">
+      <div class="rh"><div><b>${o.type === 'PMO' ? 'PREVENTIVE MAINTENANCE ORDER' : 'WORK ORDER'}</b><br><small class="muted">Al-Baha Company For Caustic-Chlorine Industry · Form ${o.type === 'PMO' ? 'Fsop21-21 rev a' : 'FSOP 21-2 Rev. b'} (digital)</small></div><div class="no">№ ${o.no}</div></div>
+      <section><div class="dl"><dt>Date / Time</dt><dd>${fmt(o.raisedAt)}</dd><dt>Department From / To</dt><dd>Process → Maintenance (${o.sectors.join(', ')})</dd><dt>Equipment / No.</dt><dd>${esc(p ? p.name : '')} / ${o.tag}</dd><dt>Nature of job</dt><dd>${o.priority === 'Class 1' ? 'Urgent' : 'Normal'} · Safety clearance Class ${o.safetyClass}${o.shutdown ? ' · shutdown job' : ''}</dd>${o.est ? `<dt>Tentative comp. time</dt><dd>${esc(o.est)}</dd>` : ''}</div>
+        <h4 style="margin-top:8px">Description of job</h4><div>${esc(o.desc)}</div>${o.notes.map(n => `<div class="muted">${esc(uname(n.by))}: ${esc(n.text)}</div>`).join('')}
+        <div class="sigrow" style="margin-top:8px">${sb('Reported by', find(/Reported|raised/)[0])}${sb('Process Engineer report', find(/Report submitted|Standby/)[0])}${sb('Authorized signature (Process S.V. / Manager)', find(/Report approved/)[0])}</div></section>
+      <section><h4>Category of safety clearance: Class ${o.safetyClass}</h4><div class="sigrow">${sb('Head of Electrical Department: isolation and tags', o.isolation.electrical)}${sb('Processes Department: process isolation', o.isolation.process)}${o.safetyClass === 'II' ? sb('Head of Safety Department', o.isolation.safety) : ''}</div>${o.safetyNote ? `<div class="muted">Safety comments: ${esc(o.safetyNote)}</div>` : ''}</section>
+      <section><h4>Execution</h4><div class="dl"><dt>Appointment</dt><dd>${o.appointment ? fmt(o.appointment) : '—'}</dd>${o.jobs.map(j => `<dt>${j.sector}</dt><dd>${esc(U(j.engineer)?.name || '')}: ${esc(j.actions)}${j.parts ? `<br>Spare parts: ${esc(j.parts)}` : ''}</dd>`).join('')}${o.checklist ? `<dt>Checklist</dt><dd>${o.checklist.map(c => (c.done ? '☑ ' : '☐ ') + esc(c.c)).join('; ')}</dd>` : ''}</div>
+        <div class="sigrow" style="margin-top:8px">${o.jobs.map(j => sb(`${j.sector} engineer: job finished`, j.finishedSig) + sb(`${j.sector} manager: work checked`, j.approvedSig)).join('')}</div></section>
+      <section><h4>Completion and hand-over</h4><div class="dl"><dt>Job completed at</dt><dd>${o.jobs.map(j => j.finishedSig ? fmt(j.finishedSig.at) : '—').join(', ')}</dd><dt>Trial run and hand-over</dt><dd>${o.closedAt ? fmt(o.closedAt) : '—'} · downtime ${o.downtime ?? '—'} h</dd></div>
+        <div class="sigrow" style="margin-top:8px">${sb('Signature of Maintenance Department (HOD)', find(/Final approval/)[0])}${sb('Signature of Control Room / Process in charge', find(/Fix confirmed/)[0])}</div></section>
+    </div></div></div>`;
+  $('#print').onclick = () => { const t = document.title; document.title = `${o.type} ${o.no} - ${o.tag}`; window.print(); document.title = t; };
+  $('#close').onclick = () => $('#modal').innerHTML = ''; $('#mod').addEventListener('click', e => { if (e.target.id === 'mod') $('#modal').innerHTML = ''; });
+}
+
+/* ===================== shutdown list ===================== */
+let sfSector = 'all', sfPr = 'all';
+function rShutdown() {
+  const held = ORDERS.filter(o => o.shutdown && o.status !== 'closed').filter(o => sfSector === 'all' || o.sectors.includes(sfSector)).filter(o => sfPr === 'all' || o.priority === sfPr);
+  const units = [...new Set(held.map(o => byTag(o.tag)?.unit || 'Other'))];
+  $('#view').innerHTML = `<div class="toolbar"><select id="ss"><option value="all">All sectors</option>${SECTORS.map(s => `<option>${s}</option>`).join('')}</select><select id="sp"><option value="all">All priorities</option><option>Class 1</option><option>Class 2</option></select><span class="sp"></span><span class="muted">${held.length} jobs waiting for a shutdown</span><button class="btn ghost sm" id="exp">Copy as CSV</button></div>
+    <p class="muted" style="margin:0 0 10px">Live list of approved jobs that need the plant or unit stopped, grouped by unit as in the current Excel sheet. Jobs leave the list when the Maintenance Manager sets their appointment.</p>
+    ${units.map(u => `<div class="group-h"><span>${esc(u)}</span><span class="muted">${held.filter(o => (byTag(o.tag)?.unit || 'Other') === u).length}</span></div><div class="tablew"><table><thead><tr><th>S.N</th><th>Order</th><th>Equipment</th><th>Job</th><th>Sector</th><th>Priority</th><th>Est.</th><th>Status</th></tr></thead><tbody>${held.filter(o => (byTag(o.tag)?.unit || 'Other') === u).map((o, i) => `<tr class="click" data-no="${o.no}"><td class="num">${i + 1}</td><td class="mono">${o.type} ${o.no}</td><td><b>${esc(byTag(o.tag)?.name || '')}</b><br><span class="mono muted">${o.tag}</span></td><td style="max-width:360px">${esc(o.desc)}</td><td>${o.sectors.map(stag).join(' ')}</td><td class="num">${o.priority.replace('Class ', '')}</td><td>${o.est || '—'}</td><td>${o.status === 'held' ? '<span class="pill">not done</span>' : pill(o.status)}</td></tr>`).join('')}</tbody></table></div>`).join('') || '<p class="empty">No jobs are waiting for a shutdown.</p>'}`;
+  $('#ss').value = sfSector; $('#sp').value = sfPr; $('#ss').onchange = e => { sfSector = e.target.value; rShutdown(); }; $('#sp').onchange = e => { sfPr = e.target.value; rShutdown(); };
+  $('#view').querySelectorAll('tr[data-no]').forEach(r => r.addEventListener('click', () => go('orders', +r.dataset.no)));
+  $('#exp').onclick = () => { const csv = ['Unit,Order,Tag,Equipment,Job,Sector,Priority,Est,Status', ...held.map(o => [byTag(o.tag)?.unit, o.no, o.tag, byTag(o.tag)?.name, o.desc, o.sectors.join('+'), o.priority, o.est || '', o.status].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))].join('\n'); navigator.clipboard?.writeText(csv).then(() => toast('CSV copied to clipboard.')).catch(() => toast('Clipboard blocked here; select the table and copy instead.')); };
+}
+
+/* ===================== PM schedule ===================== */
+let pmf = 'all';
+function rPM() {
+  const rows = pmRows().filter(r => pmf === 'all' || r.state === pmf || (pmf === 'due' && r.state === 'overdue'));
+  const cnt = s => pmRows().filter(r => r.state === s).length;
+  $('#view').innerHTML = `<div class="grid kpis" style="margin-bottom:14px"><div class="card kpi ${cnt('overdue') ? 'crit' : ''}"><div class="v num">${cnt('overdue')}</div><div class="k">Overdue this month</div></div><div class="card kpi warn"><div class="v num">${cnt('due')}</div><div class="k">Due within 7 days</div></div><div class="card kpi"><div class="v num">${cnt('raised')}</div><div class="k">PMO raised, in progress</div></div><div class="card kpi good"><div class="v num">${cnt('done')}</div><div class="k">Done this month</div></div><div class="card kpi"><div class="v num">${pmRows().length}</div><div class="k">Pumps on the calendar</div></div></div>
+    <div class="toolbar"><div class="chips">${[['all', 'All'], ['due', 'Overdue and due'], ['raised', 'Raised'], ['done', 'Done'], ['later', 'Later']].map(([v, l]) => `<button data-f="${v}" aria-pressed="${pmf === v}">${l}</button>`).join('')}</div><span class="sp"></span><span class="muted">Schedule imported from "pump monthly and annual inspection" sheet</span></div>
+    <div class="tablew"><table><thead><tr><th>Tag</th><th>Equipment</th><th>Unit</th><th>Calendar</th><th>Type</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td class="mono">${r.p.tag}</td><td>${esc(r.p.name)}</td><td>${esc(r.p.unit)}</td><td class="muted">${r.c.day}, week ${r.c.week}${r.c.six.length ? ` · 6m in ${r.c.six.map(m => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].at(m - 1)).join(', ')}` : ''}</td><td>${r.type}</td><td>${fmtD(r.due)}</td><td>${{ overdue: `<span class="pill crit">overdue ${-r.days} d</span>`, due: `<span class="pill warn">due in ${r.days} d</span>`, raised: `<span class="pill acc">PMO #${r.openPmo?.no}</span>`, done: '<span class="pill ok">done</span>', later: '<span class="pill">scheduled</span>' }[r.state]}</td><td>${r.state === 'raised' ? `<button class="btn ghost sm" data-open="${r.openPmo.no}">Open</button>` : r.state === 'done' ? '' : `<button class="btn sm" data-raise="${r.p.tag}" ${can('maint_mgr', 'proc_eng', 'mech_mgr') ? '' : 'disabled'}>Raise PMO now</button>`}</td></tr>`).join('')}</tbody></table></div>
+    <p class="muted" style="font-size:12px">In production the system raises each PMO automatically one day before the due date; the button simulates that. The next due date is counted from the actual completion date.</p>`;
+  $('#view').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { pmf = b.dataset.f; rPM(); });
+  $('#view').querySelectorAll('[data-open]').forEach(b => b.onclick = () => go('orders', +b.dataset.open));
+  $('#view').querySelectorAll('[data-raise]').forEach(b => b.onclick = () => { const r = pmRows().find(x => x.p.tag === b.dataset.raise); const o = mk({ no: seqP++, type: 'PMO', pmType: r.type, tag: r.p.tag, desc: `${r.type} preventive maintenance: pump checklist (${PUMP_CHECKLIST.length} items).`, raisedBy: 'system', raisedAt: Date.now(), status: 'classified', sectors: ['Mechanical'], safetyClass: 'I', priority: 'Class 2', checklist: PUMP_CHECKLIST.map(c => ({ c, done: false })), sigs: [sig('system', Date.now(), 'PMO raised by schedule')] }); ORDERS.push(o); toast(`PMO #${o.no} raised for ${r.p.tag}. Process notified to switch to standby.`); go('orders', o.no); });
+}
+
+/* ===================== assets ===================== */
+let afZone = 'all', afUnit = 'all', afQ = '';
+function qrSvg(text, size) { try { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); } catch (e) { return `<div style="font-size:10px;color:#333;text-align:center">${esc(text)}</div>`; } }
+const LINK = t => `https://maint.albaha.example/eq/${t}`;
+function rAssets() {
+  if (sub) return rAsset(sub);
+  const units = [...new Set(PUMPS.map(p => p.unit))].sort();
+  const list = PUMPS.filter(p => afZone === 'all' || p.zone === +afZone).filter(p => afUnit === 'all' || p.unit === afUnit).filter(p => !afQ || (p.name + ' ' + p.tag).toLowerCase().includes(afQ.toLowerCase()));
+  $('#view').innerHTML = `<div class="toolbar"><input type="search" id="q" placeholder="Search name or tag" value="${esc(afQ)}"><select id="z"><option value="all">All zones</option>${[1, 2, 3, 4, 5, 6].map(z => `<option value="${z}">Zone ${z}</option>`).join('')}</select><select id="u"><option value="all">All units</option>${units.map(u => `<option>${esc(u)}</option>`).join('')}</select><span class="sp"></span><span class="muted">${list.length} of ${PUMPS.length} pumps · ${PUMPS.filter(p => p.untagged).length} without a tag yet</span></div>
+    <div class="tablew"><table><thead><tr><th>Tag</th><th>Equipment</th><th>Zone</th><th>Unit</th><th>Motor</th><th>Status</th><th>Open orders</th><th>Next PM</th></tr></thead><tbody>${list.map(p => { const oo = ORDERS.filter(o => o.tag === p.tag && o.status !== 'closed').length; const r = pmRows().find(x => x.p === p); return `<tr class="click" data-tag="${p.tag}"><td class="mono">${p.tag}${p.untagged ? ' <span class="tag">provisional</span>' : ''}</td><td><b>${esc(p.name)}</b>${p.remark ? `<br><span class="muted" style="font-size:12px">${esc(p.remark)}</span>` : ''}</td><td class="num">${p.zone}</td><td>${esc(p.unit)}</td><td class="muted">${p.kw ? p.kw + ' kW' : '—'}${p.rpm ? ' · ' + p.rpm + ' rpm' : ''}</td><td>${epill(p.status)}</td><td class="num">${oo || '<span class="muted">0</span>'}</td><td>${r ? (r.state === 'overdue' ? '<span class="pill crit">overdue</span>' : fmtD(r.due)) : '<span class="muted">not on calendar</span>'}</td></tr>`; }).join('')}</tbody></table></div>`;
+  $('#q').oninput = e => { afQ = e.target.value; rAssets(); $('#q').focus(); $('#q').setSelectionRange(afQ.length, afQ.length); }; $('#z').value = afZone; $('#u').value = afUnit; $('#z').onchange = e => { afZone = e.target.value; rAssets(); }; $('#u').onchange = e => { afUnit = e.target.value; rAssets(); };
+  $('#view').querySelectorAll('tr[data-tag]').forEach(r => r.addEventListener('click', () => go('assets', r.dataset.tag)));
+}
+function rAsset(tag, fromScan) {
+  const p = byTag(tag); if (!p) return go('assets');
+  const hist = ORDERS.filter(o => o.tag === tag).sort((a, b) => b.raisedAt - a.raisedAt); const r = pmRows().find(x => x.p === p);
+  const canReport = true; // anyone who scans the QR can raise a report; the Process Engineer classifies it
+  $('#view').innerHTML = `<button class="btn ghost sm" id="back">← ${fromScan ? 'Scan another' : 'Assets'}</button>
+    <div class="card" style="margin-top:12px"><div class="asset-head"><div class="qr">${qrSvg(LINK(tag))}</div><div style="flex:1;min-width:220px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="mono muted">${tag}</span>${epill(p.status)}${p.untagged ? '<span class="tag">provisional tag</span>' : ''}</div><h2 style="font-size:20px;margin:4px 0 8px">${esc(p.name)}</h2>
+      <dl class="dl"><dt>Unit / zone</dt><dd>${esc(p.unit)}, zone ${p.zone}</dd><dt>Class</dt><dd>Pump</dd><dt>Motor</dt><dd>${p.kw ? p.kw + ' kW' : 'unknown'}${p.rpm ? ', ' + p.rpm + ' rpm' : ''} · rigid mounting</dd><dt>Bearing temp.</dt><dd>alert 70 °C · danger 80 °C</dd>${p.remark ? `<dt>Remark</dt><dd>${esc(p.remark)}</dd>` : ''}<dt>Next PM</dt><dd>${r ? `${r.type}, ${fmtD(r.due)} (${r.c.day}, week ${r.c.week})` : 'not on the inspection calendar'}</dd></dl>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn danger" id="rep" ${canReport ? '' : 'disabled'} title="${canReport ? '' : 'Process department raises problems'}">Report a problem</button><button class="btn ghost" id="lbl">QR label</button>${can('proc_eng') ? `<button class="btn ghost" id="tog">Set ${p.status === 'Online' ? 'Offline' : 'Online'}</button>` : ''}</div>${canReport ? '' : '<p class="muted" style="font-size:12px;margin:6px 0 0">Switch to a Process role to report a problem.</p>'}</div></div></div>
+    <div class="card" style="margin-top:14px"><h3>History <span>${hist.length} orders</span></h3>${hist.length ? `<div class="hist">${hist.map(o => `<div class="it"><span class="mono">${o.type} ${o.no}</span><span>${esc(o.desc)}<br><span class="muted">${o.sectors.join(', ')} · ${fmt(o.raisedAt)}${o.downtime ? ` · downtime ${o.downtime} h` : ''}</span></span><span>${pill(o.status)} <button class="btn ghost sm" data-open="${o.no}">Open</button></span></div>`).join('')}</div>` : '<p class="empty">No orders recorded yet.</p>'}</div>
+    <div id="repform"></div>`;
+  $('#back').onclick = () => fromScan ? go('scan') : go('assets');
+  $('#view').querySelectorAll('[data-open]').forEach(b => b.onclick = () => go('orders', +b.dataset.open));
+  $('#lbl').onclick = () => { $('#modal').innerHTML = `<div class="modal" id="mod"><div class="box" style="max-width:360px;text-align:center"><div class="label-print">${qrSvg(LINK(tag))}<b>${tag}</b><small>${esc(p.name)}<br>${esc(p.unit)} · Zone ${p.zone}</small><small style="font-family:var(--f-mono);font-size:9px">${LINK(tag)}</small></div><p class="muted" style="font-size:12px">Printed on chemical-resistant vinyl, 60 × 80 mm.</p><button class="btn ghost sm" id="close">Close</button></div></div>`; $('#close').onclick = () => $('#modal').innerHTML = ''; };
+  if ($('#tog')) $('#tog').onclick = () => { p.status = p.status === 'Online' ? 'Offline' : 'Online'; toast(`${tag} set ${p.status}.`); rAsset(tag, fromScan); };
+  if ($('#rep')) $('#rep').onclick = () => {
+    $('#repform').innerHTML = `<div class="card action" style="margin-top:14px"><h3>Report a problem on ${tag} <span>${esc(ME().pos)}</span></h3><div class="field"><label for="d">What is wrong?</label><textarea id="d" placeholder="e.g. Unusual noise from the bearing side, pump still running"></textarea></div><div class="photo"><input type="file" id="ph" accept="image/*" multiple><label for="ph">+ Add photo or video</label><span id="phc">0 attached</span></div><label class="check" style="margin-top:8px"><input type="checkbox" id="stop"> Equipment is stopped</label><p class="err" id="rerr" hidden></p><button class="btn danger" id="send">Send report to Process Engineer</button></div>`;
+    const photos = []; $('#ph').onchange = e => [...e.target.files].slice(0, 4).forEach(f => { const rd = new FileReader(); rd.onload = () => { photos.push(rd.result); $('#phc').textContent = photos.length + ' attached'; }; rd.readAsDataURL(f); });
+    $('#send').onclick = () => { const d = $('#d').value.trim(); if (d.length < 5) { $('#rerr').textContent = 'Describe the problem in a few words.'; $('#rerr').hidden = false; return; } const o = mk({ no: seqC++, tag, desc: d, raisedBy: me, raisedAt: Date.now(), status: 'reported', photos, sigs: [sig(me, Date.now(), 'Reported')] }); if ($('#stop').checked) p.status = 'Offline'; ORDERS.push(o); toast(`CMO #${o.no} reported. Process Engineer notified.`); go('orders', o.no); };
+    $('#repform').scrollIntoView({ behavior: 'smooth' });
+  };
+}
+
+/* ===================== scan ===================== */
+function rScan() {
+  if (sub) return rAsset(sub, true);
+  const sample = ['23P001A', '07P001A', '27P003A', '76P004A', '02P001A', '17P001A', '24P1101B', '74P002A'];
+  $('#view').innerHTML = `<div class="grid scan"><div><div class="viewfinder"><div class="frame"><i></i><i></i><i></i><i></i></div><div class="line"></div><p>Point the phone camera at the equipment label</p></div><p class="muted" style="font-size:12.5px;margin:0">The camera is not used in this demo. Pick a label below to simulate the scan; in production the QR holds the link <span class="mono">maint.albaha.example/eq/&lt;tag&gt;</span> and opens in any phone browser.</p></div>
+    <div class="card"><h3>Labels in reach <span>simulated</span></h3><div class="hist">${sample.map(t => { const p = byTag(t); return `<div class="it"><span class="mono">${t}</span><span><b>${esc(p.name)}</b><br><span class="muted">${esc(p.unit)}, zone ${p.zone}</span></span><span>${epill(p.status)} <button class="btn sm" data-scan="${t}">Scan</button></span></div>`; }).join('')}</div></div></div>`;
+  $('#view').querySelectorAll('[data-scan]').forEach(b => b.onclick = () => go('scan', b.dataset.scan));
+}
+
+/* ===================== boot ===================== */
+$('#who').innerHTML = USERS.map(u => `<option value="${u.id}">${u.name} · ${u.pos}</option>`).join('');
+$('#who').value = me;
+$('#who').onchange = e => { me = e.target.value; $('#avatar').textContent = ME().name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(); render(); };
+$('#avatar').textContent = ME().name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+document.querySelectorAll('nav.side a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.v); }));
+try { const h = location.hash.slice(1); if (VIEWS[h]) view = h; } catch (e) {}
+render();
+</script>
