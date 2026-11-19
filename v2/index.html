@@ -235,6 +235,15 @@ td.muted, .muted { color: var(--muted); }
 .moc-h { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; border-bottom: 1.5px solid #333; padding-bottom: 6px; margin-bottom: 8px; }
 .moc-h small { color: #444; } .moc-ref { margin-bottom: 4px; }
 .paper .apx-c { display: grid; gap: 3px; } .paper .apx-r { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 2px 0; font-size: 12.5px; }
+.tb-right { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.onb { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 6px 10px; }
+.onb label { font-size: 12px; color: var(--accent); font-weight: 600; } .onb select { border: 0; background: transparent; font-weight: 600; max-width: 300px; color: var(--ink); }
+.audit { display: grid; gap: 4px; max-height: 240px; overflow: auto; font-size: 12.5px; } .audit > div { display: grid; grid-template-columns: 112px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.fcrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; } .fc { display: grid; gap: 3px; font-size: 12px; color: var(--muted); } .fc select { font-size: 13px; }
+.fcnote { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.paper .fcrow select { font-size: 12px; } .paper .fc { color: #444; } .paper .fcnote { color: #555; } .paper .fcread { font-size: 12.5px; }
+table.perm th { font-size: 11px; white-space: normal; min-width: 64px; } table.perm td.ck { text-align: center; color: var(--accent); font-weight: 700; }
+.hist .it.dl { grid-template-columns: 76px minmax(0, 1fr) auto; }
 .obar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); }
 .seg button { border: 0; background: transparent; padding: 6px 12px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
@@ -279,11 +288,13 @@ td.muted, .muted { color: var(--muted); }
     <a href="#pm" data-v="pm">PM Schedule <span class="badge" id="b-pm" hidden></span></a>
     <a href="#assets" data-v="assets">Assets</a>
     <a href="#scan" data-v="scan">Scan QR</a>
+    <a href="#roles" data-v="roles">Roles &amp; Delegation</a>
   </nav>
   <main>
     <div class="topbar">
       <h1 id="title">Overview</h1>
-      <div class="acting"><div class="avatar" id="avatar">GM</div><div><label for="who">Acting as</label><br><select id="who"></select></div></div>
+      <div class="tb-right"><div class="onb" id="onbwrap" hidden><label for="onb">Working as</label><br><select id="onb"></select></div>
+      <div class="acting"><div class="avatar" id="avatar">GM</div><div><label for="who">Logged in as</label><br><select id="who"></select></div></div></div>
     </div>
     <div id="view"></div>
   </main>
@@ -420,11 +431,12 @@ const pill = (st) => { const [t, c] = STATUS[st]; return `<span class="pill ${c}
 const epill = s => `<span class="pill ${s === 'Online' ? 'ok' : s === 'Offline' ? 'warn' : 'crit'}">${s}</span>`;
 const stag = s => `<span class="tag ${SC[s]}">${s}</span>`;
 const uname = id => id === 'system' ? 'System (schedule)' : (U(id) ? `${U(id).name}, ${U(id).pos}` : id);
-const sigHtml = s => s ? `<span class="sig"><b>${esc(U(s.user) ? U(s.user).name : 'System')}</b> <span class="muted">${esc(s.label)} · ${fmt(s.at)}</span></span>` : '';
+const sigHtml = s => s ? `<span class="sig"><b>${esc(SN(s))}</b> <span class="muted">${esc(s.label)} · ${fmt(s.at)}</span></span>` : '';
 function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 3000); }
 const isOverdue = o => o.appointment && !isDone(o) && o.status !== 'held' && Date.now() - o.appointment > 8 * H;
 const stepIdx = o => STEP_ORDER.indexOf(o.status === 'held' ? 'open' : o.status);
 let me = 'maint_mgr';
+let realMe = me; // the person logged in; me = whose role they are working in (themselves or someone they cover for)
 const ME = () => U(me);
 const full = () => FULL.includes(me);
 const can = (...roles) => full() || roles.includes(me);
@@ -510,7 +522,7 @@ function mocAdvance(o) { // move to the next step that is not already signed
 /* ----- MOC paper form (FSOP 36-01-b) ----- */
 function mocPaper(o, ed) {
   const p = o.tag ? byTag(o.tag) : null; const iss = U(o.raisedBy);
-  const sg = s => s ? `<span class="hand sig">${esc(U(s.user)?.name || '')}</span>` : '';
+  const sg = s => s ? `<span class="hand sig">${esc(SN(s))}</span>` : '';
   const dt = t => t ? new Date(t).toLocaleDateString('en-GB') : '';
   const f = (label, val, cls = '') => `<span class="fl ${cls}"><b>${label}</b><span class="dots">${val ? `<span class="hand">${val}</span>` : ''}</span></span>`;
   const fr = (label, html) => `<span class="fl"><b>${label}</b><span class="dots">${html}</span></span>`;
@@ -520,7 +532,7 @@ function mocPaper(o, ed) {
   const step = ([k, , label]) => { const a = o.approvals[k]; const E = ed === k;
     return `<div class="pb${E ? ' edit' : ''}"><div class="row1"><b class="big sm">${label}</b></div>
       ${E ? `<textarea class="pta" id="m_nt" rows="2" placeholder="${k === 'gm' ? 'Comments' : 'Notes'}"></textarea>` : `<div class="row1">${f(k === 'gm' ? 'Comments:' : 'Notes:', a ? esc(a.notes || '') : '')}</div>`}
-      <div class="right">${E ? fr('Signature', `<button type="button" class="psign" id="m_ok">Sign</button> <button type="button" class="psign" id="m_ret">Return</button>`) + f('Name', esc(ME().name)) : f('Signature', a ? sg(a) : '') + f('Date', a ? dt(a.at) : '')}</div>
+      <div class="right">${E ? fr('Signature', `<button type="button" class="psign" id="m_ok">Sign</button> <button type="button" class="psign" id="m_ret">Return</button>`) + f('Name', esc(meName())) : f('Signature', a ? sg(a) : '') + f('Date', a ? dt(a.at) : '')}</div>
       ${E ? '<p class="perr" id="perr" hidden></p>' : ''}</div>`; };
   const ax = o.appendix || {}; const EA = ed === 'rd';
   const yn = (k, q) => `<div class="apx-r"><span>${esc(q)}</span><span>${EA ? `<label class="pl"><input type="radio" class="pcb" name="a_${k}" value="Yes"${ax[k] === 'Yes' ? ' checked' : ''}>Yes</label><label class="pl"><input type="radio" class="pcb" name="a_${k}" value="No"${ax[k] === 'No' ? ' checked' : ''}>No</label>` : `${bx(ax[k] === 'Yes')} Yes &nbsp; ${bx(ax[k] === 'No')} No`}</span></div>`;
@@ -545,7 +557,7 @@ function mocPaper(o, ed) {
       <div style="margin-top:6px"></div>${APX_YN.slice(3).map(([k, q]) => yn(k, q)).join('')}</div></div>
     <div class="fno">Form # FSOP 36-01-b</div>`;
 }
-function mocKey(o) { if (!mocPending(o, me) || o.status === 'moc_returned') return null; return mocStep(o)?.[0] || null; }
+function mocKey(o) { if (!mocPending(o, me) || o.status === 'moc_returned' || sodBlock(o)) return null; return mocStep(o)?.[0] || null; }
 function readAppendix(root) {
   const cls = [...root.querySelectorAll('input[name="a_cls"]:checked')].map(i => i.value);
   const a = { cls }; APX_YN.forEach(([k]) => { a[k] = root.querySelector(`input[name="a_${k}"]:checked`)?.value || null; }); return a;
@@ -555,7 +567,7 @@ function mocDecide(o, approve, notes, apx) {
   if (k === 'rd' && approve) { if (!apx.cls.length) return 'Tick at least one item under "This Management of Change is related to".'; o.appendix = apx; }
   if (!approve && !notes) return 'Write the reason in the notes before returning it.';
   if (approve) {
-    o.approvals[k] = { user: me, at: Date.now(), notes }; sign(o, st[2]);
+    o.approvals[k] = Object.assign(sigMe(Date.now(), st[2]), { notes }); sign(o, st[2]);
     mocAdvance(o); toast(o.status === 'moc_approved' ? `MOC ${o.ref} approved by all departments.` : `Signed. MOC sent to ${MOC_STEPS.find(s => s[1] === o.status)[2].replace(' Approval', '').replace(' Comments', '')}.`);
   } else { o.rejected = { by: me, text: notes, step: st[2] }; o.returnedFrom = o.status; o.status = 'moc_returned'; toast(`MOC returned to ${U(o.raisedBy).name} with your notes.`); }
   return null;
@@ -566,7 +578,7 @@ function rMoc(o) {
   const key = mocKey(o); const act = mocPending(o, me); const p = o.tag ? byTag(o.tag) : null;
   const chain = `<div class="card"><h3>Approvals <span>${Object.keys(o.approvals).length} of ${MOC_STEPS.length}</span></h3><div class="steps">
       <div class="step done"><i>✓</i><div><div class="t">Issued and signed</div><div class="s">${esc(uname(o.raisedBy))}</div>${sigHtml(o.sigs.find(s => s.label === 'Issuer signature'))}</div></div>
-      ${MOC_STEPS.map(([k, s, label], i) => { const a = o.approvals[k]; const now = o.status === s; return `<div class="step ${a ? 'done' : now ? 'now' : ''}"><i>${a ? '✓' : i + 2}</i><div><div class="t">${label.replace(' Department Approval', '').replace(' Approval', '')}</div><div class="s">${s === 'moc_hod' ? esc(uname(o.hod)) : esc(st2who(k))}</div>${a ? `<span class="sig"><b>${esc(U(a.user).name)}</b> <span class="muted">${fmt(a.at)}${a.notes ? ' · ' + esc(a.notes) : ''}</span></span>` : ''}</div></div>`; }).join('')}
+      ${MOC_STEPS.map(([k, s, label], i) => { const a = o.approvals[k]; const now = o.status === s; return `<div class="step ${a ? 'done' : now ? 'now' : ''}"><i>${a ? '✓' : i + 2}</i><div><div class="t">${label.replace(' Department Approval', '').replace(' Approval', '')}</div><div class="s">${s === 'moc_hod' ? esc(uname(o.hod)) : esc(st2who(k))}</div>${a ? `<span class="sig"><b>${esc(SN(a))}</b> <span class="muted">${fmt(a.at)}${a.notes ? ' · ' + esc(a.notes) : ''}</span></span>` : ''}</div></div>`; }).join('')}
     </div></div>`;
   const details = `<div class="card"><h3>Management of Change <span>form FSOP 36-01-b</span></h3>
       <dl class="dl"><dt>Ref</dt><dd class="mono">${o.ref}</dd><dt>MOC title</dt><dd><b>${esc(o.title)}</b></dd><dt>Issuer</dt><dd>${esc(uname(o.raisedBy))} · ${fmt(o.raisedAt)}</dd>
@@ -580,7 +592,7 @@ function rMoc(o) {
     <div class="obar"><button class="btn ghost sm" id="back">← Work orders</button><div class="seg" role="group" aria-label="View"><button type="button" data-vm="form" aria-pressed="${viewMode === 'form'}">Form view</button><button type="button" data-vm="paper" aria-pressed="${viewMode === 'paper'}">Paper view</button></div></div>
     <div class="order-head" style="margin-top:12px"><h2>MOC <span class="mono">${o.ref}</span> · ${esc(o.title)}</h2><div class="meta">${pill(o.status)}<span class="pill">${esc(o.category)}</span></div></div>
     <div class="grid detail"><div class="grid" style="gap:14px">${viewMode === 'paper' ? `<div class="card paper-card"><div class="report paper live" id="paperlive">${mocPaper(o, key)}</div><div style="margin-top:10px"><button class="btn ghost sm" id="report">Print view</button></div></div>` : details}</div>
-      <div class="grid" style="gap:14px"><div id="actionbox"></div>${chain}</div></div>`;
+      <div class="grid" style="gap:14px"><div id="actionbox"></div>${chain}${auditCard(o)}</div></div>`;
   $('#back').onclick = () => go('orders');
   $('#view').querySelectorAll('[data-vm]').forEach(b => b.onclick = () => { viewMode = b.dataset.vm; try { localStorage.setItem('albaha-view', viewMode); } catch (e) {} rOrder(o.no); });
   $('#view').querySelectorAll('[data-asset]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go('assets', a.dataset.asset); }));
@@ -598,6 +610,7 @@ function rMoc(o) {
     $('#m_wd').onclick = () => { o.status = 'moc_withdrawn'; o.closedAt = Date.now(); toast('MOC withdrawn.'); rOrder(o.no); };
     return;
   }
+  const sod = sodBlock(o); if (sod) { box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(meName())}</span></h3><p class="err" style="margin:0">${esc(sod)}</p></div>`; return; }
   const st = mocStep(o);
   if (viewMode === 'paper') { box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(ME().pos)}</span></h3><p style="margin:0">Fill the <b>highlighted part of the form</b>${st[0] === 'rd' ? ', including <b>Appendix (1)</b>,' : ''} and press <b>Sign</b> there. <b>Return</b> sends it back to the issuer with your notes.</p></div>`;
     const root = $('#paperlive'); const ed = root.querySelector('.edit'); if (ed) ed.scrollIntoView({ block: 'center' });
@@ -606,7 +619,7 @@ function rMoc(o) {
   const apx = st[0] === 'rd' ? `<div class="field"><span class="label">Appendix (1): This Management of Change is related to</span>${ckGroup('a_cls', APX_CLASS, 'checkbox')}</div>
       ${APX_YN.map(([k, q]) => `<div class="field"><span class="label">${esc(q)}</span>${ckGroup('a_' + k, ['Yes', 'No'])}</div>`).join('')}` : '';
   box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(ME().pos)}</span></h3>
-    <div class="field"><span class="label">${esc(st[2])}</span><div>Name: <b>${esc(ME().name)}</b> · Date ${dNow()}</div></div>${apx}
+    <div class="field"><span class="label">${esc(st[2])}</span><div>Name: <b>${esc(meName())}</b> · Date ${dNow()}</div></div>${apx}
     <div class="field"><label for="m_nt">${st[0] === 'gm' ? 'General Manager Comments' : 'Notes'}</label><textarea id="m_nt"></textarea></div>
     ${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="m_ok">Sign (${esc(st[2].replace(' Comments', ''))})</button><button class="btn danger" id="m_ret">Return to issuer</button></div></div>`;
   const run = ok => { const e = mocDecide(o, ok, $('#m_nt').value.trim(), readAppendix(box)); if (e) { $('#aerr').textContent = e; $('#aerr').hidden = false; return; } rOrder(o.no); };
@@ -621,12 +634,105 @@ function showMocReport(o) {
   $('#close').onclick = () => $('#modal').innerHTML = ''; $('#mod').addEventListener('click', e => { if (e.target.id === 'mod') $('#modal').innerHTML = ''; });
 }
 
+/* ===================== ISO records: failure codes, audit trail ===================== */
+const FC_MODE = [['ELP', 'External leakage – process medium'], ['ELU', 'External leakage – utility medium'], ['VIB', 'Vibration'], ['NOI', 'Noise'], ['OHE', 'Overheating'], ['FTS', 'Fail to start on demand'], ['UST', 'Spurious stop'], ['LOO', 'Low output'], ['PDE', 'Parameter deviation'], ['STD', 'Structural deficiency'], ['OTH', 'Other']];
+const FC_MECH = [['1.1', 'Leakage'], ['1.2', 'Vibration'], ['1.3', 'Clearance / alignment failure'], ['1.5', 'Looseness'], ['2.1', 'Cavitation'], ['2.2', 'Corrosion'], ['2.3', 'Erosion'], ['2.4', 'Wear'], ['2.5', 'Breakage'], ['2.6', 'Fatigue'], ['2.7', 'Overheating'], ['3.0', 'Instrument failure'], ['4.1', 'Short circuiting'], ['4.5', 'Earth / isolation fault'], ['5.1', 'Blockage / plugged'], ['5.2', 'Contamination'], ['6.0', 'Miscellaneous']];
+const FC_CAUSE = [['1', 'Design-related'], ['2', 'Fabrication / installation-related'], ['3.1', 'Off-design service'], ['3.2', 'Operating error'], ['3.3', 'Maintenance error'], ['3.4', 'Expected wear and tear'], ['4.1', 'Documentation error'], ['4.2', 'Management error'], ['5', 'Miscellaneous']];
+const fcSel = (id, list, label) => `<label class="fc"><span>${label}</span><select id="${id}"><option value="">Select…</option>${list.map(([c, t]) => `<option value="${c}">${c} ${esc(t)}</option>`).join('')}</select></label>`;
+const fcPick = () => `<div class="fcrow">${fcSel('fc_m', FC_MODE, 'Failure mode')}${fcSel('fc_x', FC_MECH, 'Failure mechanism')}${fcSel('fc_c', FC_CAUSE, 'Failure cause')}</div><div class="fcnote">ISO 14224 failure coding</div>`;
+const readFc = () => { const m = $('#fc_m')?.value, x = $('#fc_x')?.value, c = $('#fc_c')?.value; return m && x && c ? { fm: m, fx: x, fcause: c } : null; };
+const fcLabel = j => j.fm ? `${j.fm} ${FC_MODE.find(f => f[0] === j.fm)?.[1] || ''} · ${j.fx} ${FC_MECH.find(f => f[0] === j.fx)?.[1] || ''} · ${j.fcause} ${FC_CAUSE.find(f => f[0] === j.fcause)?.[1] || ''}` : '';
+function auditRows(o) {
+  const ev = o.sigs.map(s => [s.at, SN(s), s.label]);
+  Object.values(o.isolation || {}).forEach(s => { if (s) ev.push([s.at, SN(s), s.label]); });
+  (o.log || []).forEach(l => ev.push([l.at, l.who, l.what]));
+  return ev.sort((a, b) => a[0] - b[0]);
+}
+function auditCard(o) {
+  const rows = auditRows(o); const id = o.type === 'MOC' ? o.ref.replace('/', '-') : `${o.type}-${o.no}`;
+  const csv = 'Time,Signed by,Step\n' + rows.map(r => [new Date(r[0]).toISOString(), r[1], r[2]].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  return `<div class="card"><h3>Audit trail <span>ISO 9001 record · ${rows.length} entries</span></h3>
+    <div class="audit">${rows.map(r => `<div><span class="num muted">${fmt(r[0])}</span><span><b>${esc(r[1])}</b> · ${esc(r[2])}</span></div>`).join('')}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Entries cannot be edited or deleted. Each holds the signer, the time and the step.</p>
+    <a class="btn ghost sm" style="margin-top:8px;display:inline-block;text-decoration:none" download="audit-${id}.csv" href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}">Export CSV</a></div>`;
+}
+
+/* ===================== roles, permissions and delegation ===================== */
+const ADMINS = ['gm', 'plant_mgr'];
+let DELEG = [
+  { id: 2, from: 'elec_mgr', to: 'inst_mgr', start: NOW - 1 * D, end: NOW + 5 * D, reason: 'Annual leave', by: 'elec_mgr', at: NOW - 2 * D },
+  { id: 1, from: 'maint_mgr', to: 'mech_mgr', start: NOW - 12 * D, end: NOW - 8 * D, reason: 'Business trip', by: 'gm', at: NOW - 13 * D },
+];
+let DLOG = [
+  { at: NOW - 13 * D, by: 'gm', text: 'Delegated Hamad R. (Maintenance Manager) to Saeed B. (Mechanical Manager), business trip.' },
+  { at: NOW - 2 * D, by: 'elec_mgr', text: 'Delegated Yousef K. (Electrical Manager) to Tariq N. (Instruments Manager), annual leave.' },
+];
+let seqD = 3;
+const dActive = d => !d.endedAt && d.start <= Date.now() && Date.now() <= d.end;
+const activeDelegs = uid => DELEG.filter(d => d.to === uid && dActive(d));
+const SN = s => s ? (s.by ? `${U(s.by)?.name || s.by} for ${U(s.user)?.name || s.user}` : (U(s.user)?.name || 'System')) : '';
+const meName = () => realMe !== me ? `${U(realMe).name} for ${U(me).name}` : U(me).name;
+const sigMe = (at, label) => Object.assign({ user: me, at, label }, realMe !== me ? { by: realMe } : {});
+const sodBlock = o => realMe !== me && o.sigs.some(s => s.user === realMe || s.by === realMe) ? `Segregation of duties (ISO 9001): you already signed this order yourself, so you cannot also sign it on behalf of ${U(me).name} on this order.` : null;
+function refreshOnb() {
+  const ds = activeDelegs(realMe); const w = $('#onbwrap'); if (!w) return;
+  if (!ds.some(d => d.from === me)) me = realMe;
+  if (!ds.length) { w.hidden = true; return; }
+  w.hidden = false;
+  $('#onb').innerHTML = `<option value="${realMe}">Myself (${esc(U(realMe).pos)})</option>` + ds.map(d => `<option value="${d.from}">For ${esc(U(d.from).name)}, ${esc(U(d.from).pos)}, until ${fmtD(d.end)}</option>`).join('');
+  $('#onb').value = me;
+}
+const PERM_COLS = ['Report problem', 'Engineer report', 'Approve report', 'Appointment & final approval', 'Assign & check work', 'Isolation', 'Execute job', 'Confirm fix', 'Issue MOC', 'Approve MOC', 'Full access'];
+const PERMS = {
+  gm: [10, 9], plant_mgr: [10, 9], audit: [10], rd_mgr: [10, 8, 9], rd_eng: [10, 8, 9],
+  proc_op: [0], proc_eng: [0, 1, 5, 8], proc_sup: [0, 2, 7, 8], proc_mgr: [0, 2, 7, 8, 9], maint_mgr: [0, 3, 8, 9],
+  mech_mgr: [0, 4, 8, 9], elec_mgr: [0, 4, 5, 8, 9], inst_mgr: [0, 4, 8, 9], mech_eng: [0, 6, 8], elec_eng: [0, 6, 8], inst_eng: [0, 6, 8], safety: [0, 5, 8], lab: [0], wh: [0],
+};
+function rRoles() {
+  const admin = ADMINS.includes(realMe); const now = Date.now();
+  const st = d => d.endedAt ? ['Ended', ''] : d.end < now ? ['Expired', ''] : d.start > now ? ['Scheduled', 'acc'] : ['Active', 'ok'];
+  const day = t => new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $('#view').innerHTML = `
+    <div class="grid two" style="margin-bottom:14px">
+      <div class="card action"><h3>Delegate a role <span>${admin ? 'administrator' : 'your own role'}</span></h3>
+        <p class="muted" style="margin:0 0 10px;font-size:12.5px">While someone is away, their roles and pending actions pass to a colleague for the dates set. The colleague signs "for" them, and the record shows both names.</p>
+        <div class="field"><label for="d_from">Person who is away</label><select id="d_from">${(admin ? USERS : [U(realMe)]).map(u => `<option value="${u.id}">${esc(u.name)} · ${esc(u.pos)}</option>`).join('')}</select></div>
+        <div class="field"><label for="d_to">Delegate to</label><select id="d_to">${USERS.map(u => `<option value="${u.id}">${esc(u.name)} · ${esc(u.pos)}</option>`).join('')}</select></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="d_s">From</label><input type="date" id="d_s" value="${day(now)}"></div><div class="field"><label for="d_e">Until (they return)</label><input type="date" id="d_e" value="${day(now + 7 * D)}"></div></div>
+        <div class="field"><label for="d_r">Reason</label><select id="d_r"><option>Annual leave</option><option>Sick leave</option><option>Business trip</option><option>Training</option><option>Other</option></select></div>
+        <p class="err" id="derr" hidden></p><button class="btn" id="d_go">Delegate</button></div>
+      <div class="card"><h3>Delegations <span>${DELEG.filter(dActive).length} active</span></h3>
+        <div class="hist">${DELEG.slice().sort((a, b) => b.at - a.at).map(d => { const [t, c] = st(d); const canEnd = !d.endedAt && d.end >= now && (admin || realMe === d.from || realMe === d.by);
+          return `<div class="it dl"><span class="pill ${c}">${t}</span><span><b>${esc(U(d.from).name)}</b> → <b>${esc(U(d.to).name)}</b><br><span class="muted">${esc(U(d.from).pos)} · ${fmtD(d.start)} to ${fmtD(d.end)} · ${esc(d.reason)}</span></span><span>${canEnd ? `<button class="btn ghost sm" data-end="${d.id}">They are back</button>` : ''}</span></div>`; }).join('') || '<p class="empty">No delegations.</p>'}</div>
+        <h3 style="margin-top:14px">Delegation log <span>ISO 9001 record</span></h3>
+        <div class="audit">${DLOG.slice().sort((a, b) => b.at - a.at).map(l => `<div><span class="num muted">${fmt(l.at)}</span><span><b>${esc(U(l.by)?.name || l.by)}</b> · ${esc(l.text)}</span></div>`).join('')}</div></div>
+    </div>
+    <div class="card"><h3>Roles and permissions <span>from the scenario document</span></h3>
+      <div class="tablew"><table class="perm"><thead><tr><th>User</th><th>Role</th>${PERM_COLS.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${USERS.map(u => { const ds = DELEG.filter(d => d.from === u.id && dActive(d)); return `<tr><td><b>${esc(u.name)}</b>${ds.length ? `<br><span class="pill acc">covered by ${esc(U(ds[0].to).name)}</span>` : ''}</td><td class="muted">${esc(u.pos)}</td>${PERM_COLS.map((c, i) => `<td class="ck">${(PERMS[u.id] || []).includes(i) ? '✓' : ''}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Every user can delegate their own role; the General Manager and Plant Manager can delegate anyone's. A delegate never signs a step on an order they already signed themselves (segregation of duties).</p></div>`;
+  $('#d_from').onchange = () => { if ($('#d_to').value === $('#d_from').value) $('#d_to').selectedIndex = ($('#d_to').selectedIndex + 1) % USERS.length; };
+  $('#d_from').onchange(); if (!admin) $('#d_to').value = USERS.find(u => u.id !== realMe).id;
+  $('#d_go').onclick = () => {
+    const from = $('#d_from').value, to = $('#d_to').value; const s = new Date($('#d_s').value + 'T00:00').getTime(), e = new Date($('#d_e').value + 'T23:59').getTime(); const er = $('#derr');
+    const bad = m => { er.textContent = m; er.hidden = false; };
+    if (from === to) return bad('Pick a different person to delegate to.');
+    if (!(e >= s)) return bad('The end date must be on or after the start date.');
+    if (DELEG.some(d => d.from === from && !d.endedAt && d.end >= s && d.start <= e)) return bad(`${U(from).name} already has a delegation in those dates.`);
+    if (DELEG.some(d => d.from === to && !d.endedAt && d.end >= s && d.start <= e)) return bad(`${U(to).name} is away in those dates.`);
+    DELEG.push({ id: seqD++, from, to, start: s, end: e, reason: $('#d_r').value, by: realMe, at: Date.now() });
+    DLOG.push({ at: Date.now(), by: realMe, text: `Delegated ${U(from).name} (${U(from).pos}) to ${U(to).name} (${U(to).pos}), ${$('#d_r').value.toLowerCase()}, ${fmtD(s)} to ${fmtD(e)}.` });
+    toast(`${U(to).name} now covers ${U(from).name} until ${fmtD(e)}.`); rRoles(); refreshOnb();
+  };
+  $('#view').querySelectorAll('[data-end]').forEach(b => b.onclick = () => { const d = DELEG.find(x => x.id === +b.dataset.end); d.endedAt = Date.now(); DLOG.push({ at: Date.now(), by: realMe, text: `Ended delegation of ${U(d.from).name} to ${U(d.to).name}: back at work.` }); toast(`${U(d.from).name}'s roles are back with them.`); refreshOnb(); rRoles(); });
+}
+
 /* ----- new MOC (from equipment page or work orders) ----- */
 function openMocForm(holder, tag) {
   const p = tag ? byTag(tag) : null;
   holder.innerHTML = `<div class="card action" style="margin-top:14px"><h3>Management of Change request <span>FSOP 36-01-b</span></h3>
     <div class="field"><label for="n_t">MOC title</label><input type="text" id="n_t" placeholder="e.g. Replace pump with a high-efficiency model"></div>
-    <div class="field"><span class="label">MOC Issuer · Department</span><div>${esc(ME().name)} · ${esc(ME().dept)}</div></div>
+    <div class="field"><span class="label">MOC Issuer · Department</span><div>${esc(meName())} · ${esc(ME().dept)}</div></div>
     <div class="field"><label for="n_e">Equipment / No.</label><input type="text" id="n_e" list="n_tags" value="${p ? p.tag : ''}" placeholder="Scan, type the tag, or leave empty and pick a category"><datalist id="n_tags">${PUMPS.filter(x => !x.untagged).map(x => `<option value="${x.tag}">${esc(x.name)}</option>`).join('')}</datalist></div>
     <div class="field"><label for="n_c">Category</label><select id="n_c">${MOC_CATS.map(c => `<option${c === 'Pumps' && p ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label for="n_m">Suggested new model</label><input type="text" id="n_m" placeholder="Make, model, size"></div>
@@ -668,7 +774,7 @@ function pmRows() {
 }
 
 /* ===================== routing ===================== */
-const VIEWS = { overview: 'Overview', orders: 'Work Orders', shutdown: 'Shutdown List', pm: 'PM Schedule', assets: 'Assets', scan: 'Scan QR' };
+const VIEWS = { overview: 'Overview', orders: 'Work Orders', shutdown: 'Shutdown List', pm: 'PM Schedule', assets: 'Assets', scan: 'Scan QR', roles: 'Roles & Delegation' };
 let view = 'overview', sub = null;
 function go(v, s) { view = VIEWS[v] ? v : 'overview'; sub = s || null; if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view); render(); }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v !== view) { view = VIEWS[v] ? v : 'overview'; sub = null; render(); } });
@@ -677,7 +783,7 @@ function render() {
   document.querySelectorAll('nav.side a').forEach(a => { if (a.dataset.v !== view) a.removeAttribute('aria-current'); });
   $('#title').textContent = VIEWS[view];
   refreshBadges();
-  ({ overview: rOverview, orders: rOrders, shutdown: rShutdown, pm: rPM, assets: rAssets, scan: rScan })[view]();
+  refreshOnb(); ({ overview: rOverview, orders: rOrders, shutdown: rShutdown, pm: rPM, assets: rAssets, scan: rScan, roles: rRoles })[view]();
   window.scrollTo(0, 0);
 }
 
@@ -813,11 +919,11 @@ function rOrder(no) {
           <div class="job"><div class="h">Electrical isolation and tags ${o.isolation.electrical ? '<span class="pill ok">signed</span>' : '<span class="pill warn">pending</span>'}</div><div class="b">${sigHtml(o.isolation.electrical) || '<span class="muted">Head of Electrical Department</span>'}</div></div>
           ${needSafety ? `<div class="job"><div class="h">Class II safety clearance ${o.isolation.safety ? '<span class="pill ok">signed</span>' : '<span class="pill warn">pending</span>'}</div><div class="b">${sigHtml(o.isolation.safety) || '<span class="muted">Head of Safety Department</span>'}${o.safetyNote ? `<div class="note">${esc(o.safetyNote)}</div>` : ''}</div></div>` : ''}</div>` : ''}
         ${o.jobs.length && idx >= 3 ? `<div class="card"><h3>Jobs by sector <span>${o.jobs.length}</span></h3>${o.jobs.map(j => `<div class="job"><div class="h">${stag(j.sector)} ${j.engineer ? esc(U(j.engineer).name) : '<span class="muted">not assigned</span>'} ${j.approvedSig ? '<span class="pill ok">checked</span>' : j.finishedSig ? '<span class="pill acc">finished</span>' : j.started ? '<span class="pill acc">in progress</span>' : ''}</div>
-          ${j.started ? `<div class="b muted">Started ${fmt(j.started)}</div>` : ''}${j.actions ? `<div class="b"><b>Actions:</b> ${esc(j.actions)}</div>` : ''}${j.parts ? `<div class="b"><b>Spare parts (warehouse order no.):</b> ${esc(j.parts)}</div>` : ''}${j.photos && j.photos.length ? `<div class="att">${j.photos.map(s => `<img src="${s}" alt="">`).join('')}</div>` : ''}<div class="b">${sigHtml(j.finishedSig)} ${sigHtml(j.approvedSig)}</div></div>`).join('')}</div>` : ''}`}
+          ${j.started ? `<div class="b muted">Started ${fmt(j.started)}</div>` : ''}${j.actions ? `<div class="b"><b>Actions:</b> ${esc(j.actions)}</div>` : ''}${j.parts ? `<div class="b"><b>Spare parts (warehouse order no.):</b> ${esc(j.parts)}</div>` : ''}${j.fm ? `<div class="b"><b>ISO 14224:</b> ${esc(fcLabel(j))}</div>` : ''}${j.photos && j.photos.length ? `<div class="att">${j.photos.map(s => `<img src="${s}" alt="">`).join('')}</div>` : ''}<div class="b">${sigHtml(j.finishedSig)} ${sigHtml(j.approvedSig)}</div></div>`).join('')}</div>` : ''}`}
       </div>
       <div class="grid" style="gap:14px">
         <div id="actionbox"></div>
-        <div class="card"><h3>Progress and signatures <span>${o.sigs.length} signed</span></h3><div class="steps">${STEPS.map(([k, t, who], i) => { const st = o.status === 'held' && k === 'scheduled' ? 'now' : i < idx || o.status === 'closed' ? 'done' : i === idx ? 'now' : ''; const ss = o.sigs.filter(s => stepSig(s, k)); return `<div class="step ${st}"><i>${st === 'done' ? '✓' : i + 1}</i><div><div class="t">${t}${o.status === 'held' && k === 'scheduled' ? ' <span class="pill">held</span>' : ''}</div><div class="s">${who}</div>${ss.map(sigHtml).join('')}</div></div>`; }).join('')}</div></div>
+        <div class="card"><h3>Progress and signatures <span>${o.sigs.length} signed</span></h3><div class="steps">${STEPS.map(([k, t, who], i) => { const st = o.status === 'held' && k === 'scheduled' ? 'now' : i < idx || o.status === 'closed' ? 'done' : i === idx ? 'now' : ''; const ss = o.sigs.filter(s => stepSig(s, k)); return `<div class="step ${st}"><i>${st === 'done' ? '✓' : i + 1}</i><div><div class="t">${t}${o.status === 'held' && k === 'scheduled' ? ' <span class="pill">held</span>' : ''}</div><div class="s">${who}</div>${ss.map(sigHtml).join('')}</div></div>`; }).join('')}</div></div>${auditCard(o)}
       </div>
     </div>`;
   $('#back').onclick = () => go('orders');
@@ -833,9 +939,9 @@ function stepSig(s, k) {
   const L = s.label;
   return { reported: /Reported|raised/.test(L), classified: /Report submitted|Standby/.test(L), open: /Report approved/.test(L), scheduled: /appointment|held for shutdown|Appointment/.test(L), assigned: /^Assigned/.test(L), isolated: false, in_progress: false, finished: /Job finished/.test(L), sector_approved: /Work checked/.test(L), maint_approved: /Final approval/.test(L), closed: /Fix confirmed/.test(L) }[k];
 }
-function signBlock(label) { return `<div class="pin"><span class="muted" style="font-size:12px">Signed as</span><b style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:17px;color:var(--accent)">${esc(ME().name)}</b><span class="muted" style="font-size:12px">${esc(ME().pos)} · your signature is stamped on this step</span></div><p class="err" id="aerr" hidden></p>`; }
+function signBlock(label) { return `<div class="pin"><span class="muted" style="font-size:12px">Signed as</span><b style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:17px;color:var(--accent)">${esc(meName())}</b><span class="muted" style="font-size:12px">${esc(ME().pos)} · your signature is stamped on this step</span></div><p class="err" id="aerr" hidden></p>`; }
 function pinOk() { return true; } // signature comes from the logged-in user
-function sign(o, label) { o.sigs.push(sig(me, Date.now(), label)); return o.sigs[o.sigs.length - 1]; }
+function sign(o, label) { o.sigs.push(sigMe(Date.now(), label)); return o.sigs[o.sigs.length - 1]; }
 
 const ckGroup = (name, opts, type = 'radio', dflt = null) => `<div class="ckrow">${opts.map(v => `<label class="check"><input type="${type}" name="${name}" value="${v}"${v === dflt ? ' checked' : ''}> ${v}</label>`).join('')}</div>`;
 const rv = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
@@ -845,6 +951,7 @@ const dNow = () => new Date().toLocaleDateString('en-GB');
 function renderAction(o) {
   const box = $('#actionbox'); const act = pendingFor(o, me); const p = byTag(o.tag);
   if (!act) { box.innerHTML = `<div class="card"><h3>Your action <span>${esc(ME().pos)}</span></h3><p class="empty">${o.status === 'closed' ? 'This order is closed.' : o.status === 'held' ? 'Held until a shutdown is set by the Maintenance Manager.' : 'Nothing for your role at this step. Switch role at the top to continue the demo.'}</p></div>`; return; }
+  const sod = sodBlock(o); if (sod) { box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(meName())}</span></h3><p class="err" style="margin:0">${esc(sod)}</p></div>`; return; }
   if (viewMode === 'paper' && paperKey(o)) { box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(ME().pos)}</span></h3><p style="margin:0">Fill the <b>highlighted part of the form</b> and press <b>Sign</b> there. Your signature, name and date are added for you.</p></div>`; const ed = $('#paperlive .edit'); if (ed) ed.scrollIntoView({ block: 'center' }); return; }
   let html = '', after = () => {};
   const S = o.status;
@@ -869,7 +976,7 @@ function renderAction(o) {
       };
     };
   } else if (S === 'classified') {
-    html = `<div class="field"><span class="label">Authorized signature</span><div>Name: <b>${esc(ME().name)}</b> · ${dNow()}</div></div><div class="field"><label for="nt">Comments, if any</label><textarea id="nt"></textarea></div>${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Sign (Authorized signature)</button><button class="btn danger" id="rej">Reject</button></div>`;
+    html = `<div class="field"><span class="label">Authorized signature</span><div>Name: <b>${esc(meName())}</b> · ${dNow()}</div></div><div class="field"><label for="nt">Comments, if any</label><textarea id="nt"></textarea></div>${signBlock()}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" id="do">Sign (Authorized signature)</button><button class="btn danger" id="rej">Reject</button></div>`;
     after = () => {
       $('#do').onclick = () => { if (!pinOk()) return; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); sign(o, 'Report approved'); o.status = 'open'; toast('Ticket opened and sent to the Maintenance Manager.'); rOrder(o.no); };
       $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write the reason in the notes before rejecting.'; $('#aerr').hidden = false; return; } o.rejected = { by: me, text: n }; o.status = 'reported'; toast('Returned to the Process Engineer.'); rOrder(o.no); };
@@ -893,7 +1000,7 @@ function renderAction(o) {
     const which = isoWhich(o); const pm = o.type === 'PMO';
     const lab = { process: 'Process isolation done', electrical: 'Electrical isolation done, tags provided', safety: 'Safety clearance given' }[which];
     const yn = (t, n) => `<div class="field"><span class="label">${t}</span><div class="ckpair">${ckGroup(n + 'y', ['Yes', 'No'])}${ckGroup(n + 'd', ['Done', 'Not Done'])}</div></div>`;
-    const head = t => `<div class="field"><span class="label">${t}</span><div>Name: <b>${esc(ME().name)}</b> · Date ${dNow()}</div></div>`;
+    const head = t => `<div class="field"><span class="label">${t}</span><div>Name: <b>${esc(meName())}</b> · Date ${dNow()}</div></div>`;
     html = `<p class="muted" style="margin:0 0 10px">Appointment ${o.appointment ? fmt(o.appointment) : ''}.</p>
       ${which === 'electrical' ? (pm ? `<div class="field"><span class="label">Electrical Isolation</span>${ckGroup('ed', ['Done'], 'checkbox')}</div>` : yn('Electrical Isolation', 'e') + `<div class="field"><span class="label">Tags Desecration</span><div class="ckpair">${ckGroup('tp', ['Prov.', 'Not. Prov.'])}${ckGroup('td', ['Done', 'Not Done'])}</div></div>`) + head('Head of Electrical Department')
         : which === 'process' ? (pm ? `<div class="field"><span class="label">Process Isolation</span>${ckGroup('pd', ['Done'], 'checkbox')}</div>` : yn('Processes Isolation', 'p'))
@@ -903,18 +1010,19 @@ function renderAction(o) {
       const okE = pm ? rv('ed') === 'Done' : rv('ey') === 'Yes' && rv('ed') === 'Done' && rv('tp') === 'Prov.' && rv('td') === 'Done';
       const okP = pm ? rv('pd') === 'Done' : rv('py') === 'Yes' && rv('pd') === 'Done';
       if ((which === 'electrical' && !okE) || (which === 'process' && !okP)) { $('#aerr').textContent = which === 'electrical' ? (pm ? 'Tick Electrical Isolation: Done.' : 'Tick Electrical Isolation Yes + Done and Tags Prov. + Done.') : (pm ? 'Tick Process Isolation: Done.' : 'Tick Processes Isolation Yes + Done.'); $('#aerr').hidden = false; return; }
-      o.isolation[which] = sig(me, Date.now(), lab); if (which === 'safety') o.safetyNote = $('#sn').value.trim();
+      o.isolation[which] = sigMe(Date.now(), lab); if (which === 'safety') o.safetyNote = $('#sn').value.trim();
       const done = o.isolation.process && o.isolation.electrical && (o.safetyClass !== 'II' || o.isolation.safety);
       if (done) { o.status = 'isolated'; if (p) p.status = 'Isolated'; toast(`All isolation signatures in. ${o.tag} is now Isolated; engineers may start.`); } else toast('Signature recorded. Waiting for the other isolation signatures.'); rOrder(o.no); }; };
   } else if (S === 'isolated' || S === 'in_progress') {
     const j = o.jobs.find(j => !j.finishedSig && (full() || j.engineer === me));
     if (!j.started) { html = `<p class="muted" style="margin:0 0 10px">${stag(j.sector)} job on ${o.tag}. Equipment is isolated.</p><button class="btn" id="do">Start job</button>`; after = () => { $('#do').onclick = () => { j.started = Date.now(); o.status = 'in_progress'; toast('Job started; clock running for MTTR.'); rOrder(o.no); }; }; }
-    else { html = `${o.type === 'PMO' ? `<div class="field"><label for="pt">Spare Parts Used</label><input type="text" id="pt" value="${esc(j.parts)}" placeholder="e.g. WH-2026-0412 grease"></div>` : `<div class="field"><label for="ac">Comments, if any</label><textarea id="ac" placeholder="Actions taken and spare parts used">${esc(j.actions)}</textarea></div>`}
-      <div class="field"><span class="label">Job Completed at</span><div>${hmNow()} Hrs. · By Sh. <b>${esc(ME().name)}</b></div></div>
+    else { html = `${o.type === 'PMO' ? `<div class="field"><label for="pt">Spare Parts Used</label><input type="text" id="pt" value="${esc(j.parts)}" placeholder="e.g. WH-2026-0412 grease"></div>` : `<div class="field"><label for="ac">Comments, if any</label><textarea id="ac" placeholder="Actions taken and spare parts used">${esc(j.actions)}</textarea></div><div class="field"><span class="label">Failure code (ISO 14224)</span>${fcPick()}</div>`}
+      <div class="field"><span class="label">Job Completed at</span><div>${hmNow()} Hrs. · By Sh. <b>${esc(meName())}</b></div></div>
       <div class="photo"><input type="file" id="ph" accept="image/*" multiple><label for="ph">+ Add completion photos</label><span id="phc">${(j.photos || []).length} attached</span></div>
       ${o.checklist ? '<p class="muted" style="margin:8px 0 0;font-size:12px">Tick every item under Type Of P.M. before signing.</p>' : ''}${signBlock()}<button class="btn good" id="do" style="margin-top:8px">Sign (Job completed)</button>`;
       after = () => { $('#ph').onchange = e => [...e.target.files].slice(0, 4).forEach(f => { const r = new FileReader(); r.onload = () => { (j.photos = j.photos || []).push(r.result); $('#phc').textContent = j.photos.length + ' attached'; }; r.readAsDataURL(f); });
-        $('#do').onclick = () => { j.actions = $('#ac') ? $('#ac').value.trim() : 'PM checklist completed'; j.parts = $('#pt') ? $('#pt').value.trim() : ''; if (j.actions.length < 5) { $('#aerr').textContent = 'Write the actions taken under Comments.'; $('#aerr').hidden = false; return; } if (o.checklist && o.checklist.some(c => !c.done)) { $('#aerr').textContent = 'Tick every checklist item first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return;
+        $('#do').onclick = () => { j.actions = $('#ac') ? $('#ac').value.trim() : 'PM checklist completed'; j.parts = $('#pt') ? $('#pt').value.trim() : ''; if (j.actions.length < 5) { $('#aerr').textContent = 'Write the actions taken under Comments.'; $('#aerr').hidden = false; return; } if (o.type === 'CMO') { const fc = readFc(); if (!fc) { $('#aerr').textContent = 'Select the ISO 14224 failure mode, mechanism and cause.'; $('#aerr').hidden = false; return; } Object.assign(j, fc); }
+          if (o.checklist && o.checklist.some(c => !c.done)) { $('#aerr').textContent = 'Tick every checklist item first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return;
           j.finishedSig = sign(o, 'Job finished'); if (o.jobs.every(x => x.finishedSig)) o.status = 'finished'; toast('Job finished and signed. Sector manager asked to check.'); rOrder(o.no); }; };
     }
   } else if (S === 'finished') {
@@ -927,7 +1035,7 @@ function renderAction(o) {
     after = () => { $('#do').onclick = () => { if (!pinOk()) return; const n = $('#nt').value.trim(); if (n) o.notes.push({ by: me, text: n }); sign(o, 'Final approval'); o.status = 'maint_approved'; toast('Sent to Process to confirm the fix.'); rOrder(o.no); };
       $('#rej').onclick = () => { const n = $('#nt').value.trim(); if (!n) { $('#aerr').textContent = 'Write the reason.'; $('#aerr').hidden = false; return; } o.jobs.forEach(j => j.approvedSig = null); o.rejected = { by: me, text: n }; o.status = 'finished'; toast('Returned to the sector managers.'); rOrder(o.no); }; };
   } else if (S === 'maint_approved') {
-    html = `${o.type === 'PMO' ? '' : `<label class="check"><input type="checkbox" id="c1"> Trial run conducted and handed over to Sh. <b>${esc(ME().name)}</b></label><div class="muted" style="margin:4px 0 0 24px">At ${hmNow()} hrs. · Date ${dNow()}</div>`}${signBlock()}<button class="btn good" id="do">Sign (${o.type === 'PMO' ? 'Process S.V.' : 'Signature of Control Room Incharge'})</button>`;
+    html = `${o.type === 'PMO' ? '' : `<label class="check"><input type="checkbox" id="c1"> Trial run conducted and handed over to Sh. <b>${esc(meName())}</b></label><div class="muted" style="margin:4px 0 0 24px">At ${hmNow()} hrs. · Date ${dNow()}</div>`}${signBlock()}<button class="btn good" id="do">Sign (${o.type === 'PMO' ? 'Process S.V.' : 'Signature of Control Room Incharge'})</button>`;
     after = () => { $('#do').onclick = () => { if ($('#c1') && !$('#c1').checked) { $('#aerr').textContent = 'Tick "Trial run conducted and handed over" first.'; $('#aerr').hidden = false; return; } if (!pinOk()) return; const fin = o.jobs.map(j => j.finishedSig?.at || 0).reduce((a, b) => Math.max(a, b), 0) || Date.now(); o.downtime = o.appointment ? Math.max(0.5, Math.round((fin - o.appointment) / H * 2) / 2) : 1; sign(o, 'Fix confirmed'); o.status = 'closed'; o.closedAt = Date.now(); if (p && !ORDERS.some(x => x !== o && x.tag === o.tag && ['isolated', 'in_progress', 'finished', 'sector_approved', 'maint_approved'].includes(x.status))) p.status = 'Online'; toast(`Order #${o.no} closed. ${o.tag} back Online. Signed report available.`); rOrder(o.no); }; };
   }
   box.innerHTML = `<div class="card action"><h3>Your action: ${esc(act)} <span>${esc(ME().pos)}</span></h3>${viewMode === 'paper' ? '<p class="muted" style="margin:0 0 10px;font-size:12px">This step is not on the paper form, so it is done here.</p>' : ''}${html}</div>`;
@@ -939,7 +1047,7 @@ function renderAction(o) {
 let viewMode = (() => { try { return localStorage.getItem('albaha-view') || 'form'; } catch (e) { return 'form'; } })();
 function isoWhich(o) { return !o.isolation.process && (full() || me === 'proc_eng') ? 'process' : !o.isolation.electrical && (full() || me === 'elec_mgr') ? 'electrical' : 'safety'; }
 function paperKey(o) {
-  if (!pendingFor(o, me)) return null;
+  if (!pendingFor(o, me) || sodBlock(o)) return null;
   switch (o.status) {
     case 'reported': return o.type === 'CMO' ? 'eng' : null;
     case 'classified': return 'auth';
@@ -952,8 +1060,8 @@ function paperKey(o) {
 }
 function paperHtml(o, ed) {
   const p = byTag(o.tag); const find = re => o.sigs.find(s => re.test(s.label)); const E = (...k) => k.includes(ed); const ED = (...k) => k.includes(ed) ? ' edit' : '';
-  const nm = s => s ? esc(U(s.user)?.name || '') : '';
-  const sg = s => s ? `<span class="hand sig">${esc(U(s.user)?.name || '')}</span>` : '';
+  const nm = s => s ? esc(SN(s)) : '';
+  const sg = s => s ? `<span class="hand sig">${esc(SN(s))}</span>` : '';
   const dt = t => t ? new Date(t).toLocaleDateString('en-GB') : '';
   const hm = t => t ? new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
   const f = (label, val, cls = '') => `<span class="fl ${cls}"><b>${label}</b><span class="dots">${val ? `<span class="hand">${val}</span>` : ''}</span></span>`;
@@ -969,7 +1077,7 @@ function paperHtml(o, ed) {
   const auth = find(/Report approved/);
   const hod = find(/Final approval/), ctrl = find(/Fix confirmed/);
   const eI = o.isolation.electrical, pI = o.isolation.process, sI = o.isolation.safety;
-  const now = Date.now(), myName = esc(ME().name);
+  const now = Date.now(), myName = esc(meName());
   const comments = [o.notes.map(n => esc(n.text)).join(' · '), o.jobs.filter(j => j.actions).map(j => `${j.sector}: ${esc(j.actions)}${j.parts ? ' (parts: ' + esc(j.parts) + ')' : ''}`).join(' · '), o.downtime ? `Downtime ${o.downtime} h` : ''].filter(Boolean).join(' · ');
   if (o.type === 'PMO') {
     const started = o.jobs.map(j => j.started).filter(Boolean)[0];
@@ -1017,7 +1125,7 @@ function paperHtml(o, ed) {
       <div class="pb${ED('job', 'close')}"><div class="row2">${f('Job Completed at', E('job') ? hm(now) : hm(lastFin?.at), 'short')}<b>Hrs.</b>${E('job') ? fr('By Sh.', sb()) : f('By Sh.', ftr.map(j => sg(j.finishedSig)).join(' '))}</div>
         <div class="row1">${E('close') ? `<label class="pl">${cb('p_tr')}<b>Trial run conducted and handed over to Sh.</b></label><span class="dots"><span class="hand">${myName}</span></span>` : f('Trial run conducted and handed over to Sh.', ctrl ? nm(ctrl) : '')}</div>
         <div class="row2">${f('At', E('close') ? hm(now) : hm(o.closedAt), 'short')}<b>hrs.</b>${f('Date', E('close') ? dt(now) : dt(o.closedAt))}</div></div>
-      <div class="pb${ED('job')}"><div class="row1">${f('<u>Comments, If any:</u>', comments)}</div>${E('job') ? ta('p_ac', 'Actions taken and spare parts used') : lines('', 1)}${E('job') ? err : ''}</div>
+      <div class="pb${ED('job')}"><div class="row1">${f('<u>Comments, If any:</u>', comments)}</div>${E('job') ? ta('p_ac', 'Actions taken and spare parts used') + fcPick() : o.jobs.some(j => j.fm) ? `<div class="fcread">ISO 14224: <span class="hand">${o.jobs.filter(j => j.fm).map(j => esc(fcLabel(j))).join(' / ')}</span></div>` : lines('', 1)}${E('job') ? err : ''}</div>
       <div class="pb last foot${ED('final', 'close')}"><div>${E('final') ? sb() : sg(hod)}<u>SIGNATURE OF MAINTENANCE DEPARTMENT</u></div><div>${E('close') ? sb() : sg(ctrl)}<u>SIGNATURE OF CONTROL ROOM INCHARGE</u></div></div>
     </div>${E('final', 'close') ? err : ''}<div class="fno">Form# FSOP 21-2 Rev. b</div>`;
 }
@@ -1043,7 +1151,7 @@ function wirePaper(o, key) {
       if (key === 'elec' && !(ok('p_ed') && (o.type === 'PMO' || (ok('p_ey') && ok('p_tp') && ok('p_td'))))) return bad(o.type === 'PMO' ? 'Tick Electrical Isolation: Done.' : 'Tick Electrical Isolation Yes + Done and Tags Prov. + Done.');
       if (key === 'proc' && !(ok('p_pd') && (o.type === 'PMO' || ok('p_py')))) return bad(o.type === 'PMO' ? 'Tick Process Isolation: Done.' : 'Tick Processes Isolation Yes + Done.');
       const lab = { process: 'Process isolation done', electrical: 'Electrical isolation done, tags provided', safety: 'Safety clearance given' }[which];
-      o.isolation[which] = sig(me, Date.now(), lab); if (key === 'safety') o.safetyNote = $('#p_sn').value.trim();
+      o.isolation[which] = sigMe(Date.now(), lab); if (key === 'safety') o.safetyNote = $('#p_sn').value.trim();
       const done = o.isolation.process && o.isolation.electrical && (o.safetyClass !== 'II' || o.isolation.safety);
       if (done) { o.status = 'isolated'; if (p) p.status = 'Isolated'; toast(`All isolation signatures in. ${o.tag} is now Isolated.`); } else toast('Signature recorded. Waiting for the other isolation signatures.');
     } else if (key === 'start' || key === 'job') {
@@ -1051,7 +1159,7 @@ function wirePaper(o, key) {
       if (key === 'start') { j.started = Date.now(); o.status = 'in_progress'; toast('Job started.'); }
       else {
         if (o.type === 'PMO') { if (o.checklist && o.checklist.some(c => !c.done)) return bad('Tick every item under Type Of P.M. first.'); j.actions = 'PM checklist completed'; j.parts = $('#p_pt').value.trim(); }
-        else { const a = $('#p_ac').value.trim(); if (a.length < 5) return bad('Write the actions taken in Comments.'); j.actions = a; }
+        else { const a = $('#p_ac').value.trim(); if (a.length < 5) return bad('Write the actions taken in Comments.'); const fc = readFc(); if (!fc) return bad('Select the ISO 14224 failure mode, mechanism and cause.'); j.actions = a; Object.assign(j, fc); }
         j.finishedSig = sign(o, 'Job finished'); if (o.jobs.every(x => x.finishedSig)) o.status = 'finished'; toast('Job finished and signed. Sector manager asked to check.');
       }
     } else if (key === 'final') { sign(o, 'Final approval'); o.status = 'maint_approved'; toast('Sent to Process to confirm the fix.'); }
@@ -1189,7 +1297,8 @@ function rScan() {
 /* ===================== boot ===================== */
 $('#who').innerHTML = USERS.map(u => `<option value="${u.id}">${u.name} · ${u.pos}</option>`).join('');
 $('#who').value = me;
-$('#who').onchange = e => { me = e.target.value; $('#avatar').textContent = ME().name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(); render(); };
+$('#onb').onchange = e => { me = e.target.value; render(); };
+$('#who').onchange = e => { me = realMe = e.target.value; $('#avatar').textContent = ME().name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(); render(); };
 $('#avatar').textContent = ME().name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
 document.querySelectorAll('nav.side a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.v); }));
 try { const h = location.hash.slice(1); if (VIEWS[h]) view = h; } catch (e) {}
