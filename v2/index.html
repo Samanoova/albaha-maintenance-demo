@@ -41,7 +41,8 @@ nav.side { background: var(--nav); color: var(--nav-ink); padding-block: 18px 24
 .demo-tag { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-teal); margin-bottom: 14px; }
 .brand-logo { background: #fff; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: center; align-self: stretch; margin: 0 0 12px; box-shadow: 0 1px 0 rgba(0,0,0,.08); } .brand-logo img { height: 72px; width: auto; display: block; image-rendering: auto; }
 nav.side a { color: inherit; text-decoration: none; padding: 9px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 500; }
-nav.side a[aria-current="page"] { background: var(--nav-active); color: #fff; box-shadow: inset 3px 0 0 var(--brand-teal); }
+nav.side a:hover { background: rgba(255,255,255,.06); color: #fff; }
+nav.side a[aria-current="page"] { background: rgba(0,187,179,.18); color: #fff; font-weight: 700; box-shadow: inset 4px 0 0 var(--brand-teal); }
 nav.side a .badge { background: var(--crit); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 7px; min-width: 20px; text-align: center; }
 main { padding-block: 16px 48px; padding-left: 24px; padding-right: max(16px, env(safe-area-inset-right, 0px)); min-width: 0; }
 .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-bottom: 18px; }
@@ -875,7 +876,7 @@ let view = 'overview', sub = null;
 function go(v, s) { view = VIEWS[v] ? v : 'overview'; sub = s || null; if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view); render(); }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v !== view) { view = VIEWS[v] ? v : 'overview'; sub = null; render(); } });
 function render() {
-  document.querySelectorAll('nav.side a').forEach(a => a.toggleAttribute('aria-current', a.dataset.v === view) || a.setAttribute('aria-current', a.dataset.v === view ? 'page' : 'false'));
+  document.querySelectorAll('nav.side a').forEach(a => a.dataset.v === view ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   document.querySelectorAll('nav.side a').forEach(a => { if (a.dataset.v !== view) a.removeAttribute('aria-current'); });
   $('#title').textContent = VIEWS[view];
   refreshBadges();
