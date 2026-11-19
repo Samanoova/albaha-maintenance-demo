@@ -244,6 +244,8 @@ td.muted, .muted { color: var(--muted); }
 .paper .fcrow select { font-size: 12px; } .paper .fc { color: #444; } .paper .fcnote { color: #555; } .paper .fcread { font-size: 12.5px; }
 table.perm th { font-size: 11px; white-space: normal; min-width: 64px; } table.perm td.ck { text-align: center; color: var(--accent); font-weight: 700; }
 .hist .it.dl { grid-template-columns: 76px minmax(0, 1fr) auto; }
+.iso-tabs { margin-bottom: 14px; flex-wrap: wrap; } .iso-tabs button { display: inline-flex; gap: 6px; align-items: baseline; }
+.iso-card ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; display: grid; gap: 4px; }
 .obar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); }
 .seg button { border: 0; background: transparent; padding: 6px 12px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
@@ -289,6 +291,7 @@ table.perm th { font-size: 11px; white-space: normal; min-width: 64px; } table.p
     <a href="#assets" data-v="assets">Assets</a>
     <a href="#scan" data-v="scan">Scan QR</a>
     <a href="#roles" data-v="roles">Roles &amp; Delegation</a>
+    <a href="#iso" data-v="iso">ISO &amp; Compliance</a>
   </nav>
   <main>
     <div class="topbar">
@@ -727,6 +730,99 @@ function rRoles() {
   $('#view').querySelectorAll('[data-end]').forEach(b => b.onclick = () => { const d = DELEG.find(x => x.id === +b.dataset.end); d.endedAt = Date.now(); DLOG.push({ at: Date.now(), by: realMe, text: `Ended delegation of ${U(d.from).name} to ${U(d.to).name}: back at work.` }); toast(`${U(d.from).name}'s roles are back with them.`); refreshOnb(); rRoles(); });
 }
 
+/* ===================== ISO & Compliance ===================== */
+const MO = 30 * D;
+// calibration register (sample): instruments in the plant + laboratory equipment
+const CALREG = [
+  ['PT-0201', 'Pressure transmitter', 'Brine', 'Saturator 1 discharge', 'inst', 12, -340, 'External, ISO/IEC 17025 lab'],
+  ['FT-0204', 'Magnetic flow meter', 'Brine', 'Brine to cells', 'inst', 12, -395, 'External, ISO/IEC 17025 lab'],
+  ['TT-0710', 'Temperature transmitter', 'CellHouse', 'Catholyte header', 'inst', 12, -120, 'In-house'],
+  ['AT-0715', 'pH analyser', 'CellHouse', 'Anolyte return', 'inst', 3, -95, 'In-house'],
+  ['PT-2410', 'Pressure transmitter', 'CCU', 'Flake burner feed', 'inst', 12, -200, 'In-house'],
+  ['LT-2702', 'Level transmitter', 'Hypo', 'Hypo storage tank', 'inst', 12, -352, 'In-house'],
+  ['AT-7301', 'Conductivity analyser', 'DMW', 'Demin water outlet', 'inst', 6, -40, 'In-house'],
+  ['PSV-3001', 'Safety valve', 'Boiler', 'Steam drum', 'inst', 12, -372, 'External, ISO/IEC 17025 lab'],
+  ['GD-0901', 'Chlorine gas detector', 'CellHouse', 'Cell room east', 'inst', 3, -100, 'In-house'],
+  ['GD-0902', 'Chlorine gas detector', 'CellHouse', 'Cell room west', 'inst', 3, -60, 'In-house'],
+  ['LAB-PH-01', 'pH meter', 'Laboratory', 'Wet chemistry bench', 'lab', 1, -27, 'In-house, ISO/IEC 17025'],
+  ['LAB-BAL-01', 'Analytical balance', 'Laboratory', 'Balance room', 'lab', 12, -200, 'External, ISO/IEC 17025 lab'],
+  ['LAB-TIT-01', 'Automatic titrator', 'Laboratory', 'NaOH / NaOCl assay', 'lab', 6, -190, 'In-house, ISO/IEC 17025'],
+  ['LAB-CON-01', 'Conductivity meter', 'Laboratory', 'Water analysis bench', 'lab', 6, -60, 'In-house, ISO/IEC 17025'],
+].map(([tag, type, unit, loc, own, months, lastDays, by], i) => ({ tag, type, unit, loc, own, months, last: NOW + lastDays * D, by, cert: `CAL-${2026 - (lastDays < -300 ? 1 : 0)}-${String(140 + i * 7).padStart(4, '0')}`, log: [] }));
+const calDue = c => c.last + c.months * MO;
+const calState = c => { const d = calDue(c) - Date.now(); return d < 0 ? ['Overdue', 'crit'] : d < 30 * D ? ['Due in 30 days', 'warn'] : ['In date', 'ok']; };
+// energy saving opportunities (ESO) list
+const ESO_SEED = [
+  { ref: 'ESO-07', title: 'VFD on cooling tower fans', unit: 'Cooling Tower', mwh: 210, status: 'Implemented', src: 'Energy team audit 2025' },
+  { ref: 'ESO-08', title: 'Recover condensate to boiler feed', unit: 'Boiler', mwh: 340, status: 'Approved', src: 'Energy team audit 2025' },
+  { ref: 'ESO-09', title: 'Replace T8 lighting with LED in cell house', unit: 'CellHouse', mwh: 95, status: 'Identified', src: 'Suggestion scheme' },
+];
+function esoRows() {
+  const fromMoc = ORDERS.filter(o => o.type === 'MOC' && o.appendix && (o.appendix.eso === 'Yes' || (o.appendix.cls || []).some(c => /Energy/.test(c))))
+    .map(o => ({ ref: o.ref, title: o.title, unit: byTag(o.tag)?.unit || o.category, mwh: null, status: o.status === 'moc_approved' ? 'Approved' : 'In MOC review', src: 'MOC ' + o.ref, no: o.no }));
+  return [...ESO_SEED, ...fromMoc];
+}
+// sample failure codes on historical corrective jobs, so the reports have data
+(() => { const pat = [['ELP', '1.1', '3.4'], ['VIB', '1.3', '3.3'], ['OHE', '2.7', '3.1'], ['ELP', '2.2', '1'], ['NOI', '2.4', '3.4'], ['ELU', '1.1', '2'], ['VIB', '1.5', '3.3'], ['ELP', '2.3', '3.1']];
+  ORDERS.filter(o => o.type === 'CMO' && o.status === 'closed').forEach((o, i) => o.jobs.forEach(j => { if (!j.fm) { const [m, x, c] = pat[i % pat.length]; Object.assign(j, { fm: m, fx: x, fcause: c }); } })); })();
+const csvLink = (name, rows) => `data:text/csv;charset=utf-8,${encodeURIComponent(rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'))}`;
+let isoTab = 'cal';
+function rIso() {
+  const tabs = [['cal', 'Calibration register', 'ISO/IEC 17025 · ISO 9001'], ['eso', 'Energy saving opportunities', 'ISO 50001'], ['rep', 'ISO reports', '9001 · 14001 · 45001 · 50001']];
+  const canCal = can('inst_mgr', 'inst_eng', 'lab');
+  let body = '';
+  if (isoTab === 'cal') {
+    const st = CALREG.map(calState); const n = k => st.filter(s => s[0] === k).length;
+    body = `<div class="grid kpis" style="margin-bottom:14px"><div class="card kpi ${n('Overdue') ? 'crit' : 'good'}"><div class="v num">${n('Overdue')}</div><div class="k">Overdue calibrations</div></div><div class="card kpi ${n('Due in 30 days') ? 'warn' : ''}"><div class="v num">${n('Due in 30 days')}</div><div class="k">Due in the next 30 days</div></div><div class="card kpi good"><div class="v num">${n('In date')}</div><div class="k">In date</div></div><div class="card kpi"><div class="v num">${CALREG.length}</div><div class="k">Instruments and lab equipment</div></div></div>
+      <div class="tablew"><table><thead><tr><th>Tag</th><th>Equipment</th><th>Unit / location</th><th>Interval</th><th>Last calibration</th><th>Next due</th><th>Certificate</th><th>Calibrated by</th><th>Status</th><th></th></tr></thead><tbody>
+      ${CALREG.slice().sort((a, b) => calDue(a) - calDue(b)).map(c => { const [t, k] = calState(c); return `<tr><td class="mono">${c.tag}</td><td><b>${esc(c.type)}</b></td><td>${esc(c.unit)}<br><span class="muted" style="font-size:12px">${esc(c.loc)}</span></td><td class="num">${c.months} mo</td><td>${fmtD(c.last)}${c.log.length ? `<br><span class="muted" style="font-size:12px">${esc(SN(c.log.at(-1)))}</span>` : ''}</td><td>${fmtD(calDue(c))}</td><td class="mono" style="font-size:12px">${c.cert}</td><td class="muted" style="font-size:12px">${esc(c.by)}</td><td><span class="pill ${k}">${t}</span></td><td>${canCal ? `<button class="btn sm${k === 'ok' ? ' ghost' : ''}" data-cal="${c.tag}">Record</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+      <div id="calform"></div>
+      <p class="muted" style="font-size:12px">Instruments are calibrated by the Instrumentation sector; laboratory equipment by the Lab under its ISO/IEC 17025 accreditation. ${canCal ? '' : 'Switch to the Instruments Manager, an Instruments Engineer or the Lab to record a calibration.'}</p>`;
+  } else if (isoTab === 'eso') {
+    const rows = esoRows(); const tot = rows.reduce((a, r) => a + (r.mwh || 0), 0);
+    body = `<div class="grid kpis" style="margin-bottom:14px"><div class="card kpi"><div class="v num">${rows.length}</div><div class="k">Opportunities on the ESO list</div></div><div class="card kpi good"><div class="v num">${tot} MWh</div><div class="k">Estimated saving per year (where known)</div></div><div class="card kpi"><div class="v num">${rows.filter(r => r.status === 'Implemented').length}</div><div class="k">Implemented</div></div></div>
+      <div class="tablew"><table><thead><tr><th>Ref</th><th>Opportunity</th><th>Unit</th><th>Est. saving</th><th>Source</th><th>Status</th></tr></thead><tbody>
+      ${rows.map(r => `<tr${r.no ? ` class="click" data-open="${r.no}"` : ''}><td class="mono">${r.ref}</td><td><b>${esc(r.title)}</b></td><td>${esc(r.unit)}</td><td class="num">${r.mwh ? r.mwh + ' MWh/yr' : '<span class="muted">to estimate</span>'}</td><td class="muted">${esc(r.src)}</td><td><span class="pill ${r.status === 'Implemented' ? 'ok' : r.status === 'Approved' ? 'acc' : 'warn'}">${r.status}</span></td></tr>`).join('')}</tbody></table></div>
+      <p class="muted" style="font-size:12px">An MOC joins this list when R&D ticks an energy classification or "ESO List: Yes" in Appendix (1) of form FSOP 36-01-b.</p>`;
+  } else {
+    const cmo = ORDERS.filter(o => o.type === 'CMO'); const closed = ORDERS.filter(o => o.status === 'closed');
+    const leaks = {}; cmo.forEach(o => o.jobs.forEach(j => { if (j.fm === 'ELP' || j.fm === 'ELU') { const u = byTag(o.tag)?.unit || '—'; leaks[u] = (leaks[u] || 0) + 1; } }));
+    const modes = {}; cmo.forEach(o => o.jobs.forEach(j => { if (j.fm) modes[j.fm] = (modes[j.fm] || 0) + 1; }));
+    const isoOk = closed.filter(o => o.type !== 'MOC' && o.jobs.length && o.isolation.process && o.isolation.electrical && o.jobs.every(j => !j.started || (j.started >= Math.max(o.isolation.process.at, o.isolation.electrical.at)))).length;
+    const isoAll = closed.filter(o => o.type !== 'MOC' && o.jobs.length).length;
+    const mocs = ORDERS.filter(o => o.type === 'MOC'); const osh = mocs.filter(o => o.appendix && (o.appendix.cls || []).some(c => /Safety/.test(c))).length;
+    const st = CALREG.map(calState);
+    const r9001 = [['Order', 'Type', 'Equipment', 'Status', 'Signatures', 'Raised', 'Closed']].concat(ORDERS.map(o => [o.type === 'MOC' ? o.ref : o.no, o.type, o.tag || o.category, STATUS[o.status][0], o.sigs.length, new Date(o.raisedAt).toISOString(), o.closedAt ? new Date(o.closedAt).toISOString() : '']));
+    const r14001 = [['Order', 'Unit', 'Equipment', 'Failure mode', 'Mechanism', 'Cause']].concat(cmo.flatMap(o => o.jobs.filter(j => j.fm).map(j => [o.no, byTag(o.tag)?.unit, o.tag, j.fm, j.fx, j.fcause])));
+    const r45001 = [['Order', 'Safety class', 'Process isolation', 'Electrical isolation', 'Safety clearance', 'Job started']].concat(ORDERS.filter(o => o.type !== 'MOC').map(o => [o.no, o.safetyClass, o.isolation.process ? new Date(o.isolation.process.at).toISOString() : '', o.isolation.electrical ? new Date(o.isolation.electrical.at).toISOString() : '', o.isolation.safety ? new Date(o.isolation.safety.at).toISOString() : '', o.jobs.map(j => j.started ? new Date(j.started).toISOString() : '').join(' ')]));
+    const r50001 = [['Ref', 'Opportunity', 'Unit', 'MWh/yr', 'Status']].concat(esoRows().map(r => [r.ref, r.title, r.unit, r.mwh || '', r.status]));
+    const r17025 = [['Tag', 'Equipment', 'Unit', 'Last', 'Next due', 'Certificate', 'Status']].concat(CALREG.map(c => [c.tag, c.type, c.unit, new Date(c.last).toISOString().slice(0, 10), new Date(calDue(c)).toISOString().slice(0, 10), c.cert, calState(c)[0]]));
+    const card = (std, title, lines, file, rows) => `<div class="card iso-card"><h3>${std} <span>${title}</span></h3><ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul><a class="btn ghost sm" style="text-decoration:none;display:inline-block" download="${file}.csv" href="${csvLink(file, rows)}">Download CSV</a></div>`;
+    body = `<div class="grid three">
+      ${card('ISO 9001', 'Quality records', [`<b>${ORDERS.length}</b> orders on record, <b>${ORDERS.reduce((a, o) => a + o.sigs.length, 0)}</b> signatures`, `<b>${closed.length}</b> closed with a full signature chain`, `Delegations logged: <b>${DLOG.length}</b>`], 'iso9001-records', r9001)}
+      ${card('ISO 14001', 'Leaks and releases', [`<b>${Object.values(leaks).reduce((a, b) => a + b, 0)}</b> jobs coded as external leakage (ELP / ELU)`, Object.entries(leaks).map(([u, n]) => `${esc(u)}: ${n}`).join(' · ') || 'none recorded', `Top failure modes: ${Object.entries(modes).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, n]) => `${m} ${n}`).join(', ')}`], 'iso14001-leaks', r14001)}
+      ${card('ISO 45001', 'Safe work', [`Isolation signed before work started on <b>${isoOk} of ${isoAll}</b> closed jobs`, `<b>${mocs.length}</b> MOC requests, <b>${osh}</b> classified as Occupational Safety and Health`, `Class II jobs with Safety Department sign-off are listed in the CSV`], 'iso45001-safe-work', r45001)}
+      ${card('ISO 50001', 'Energy', [`<b>${esoRows().length}</b> energy saving opportunities`, `<b>${esoRows().reduce((a, r) => a + (r.mwh || 0), 0)} MWh/yr</b> estimated saving`, 'Motor kW per pump kept in the asset register'], 'iso50001-eso', r50001)}
+      ${card('ISO/IEC 17025', 'Calibration', [`<b>${st.filter(s => s[0] === 'Overdue').length}</b> overdue, <b>${st.filter(s => s[0] === 'Due in 30 days').length}</b> due in 30 days`, `<b>${CALREG.filter(c => c.own === 'lab').length}</b> laboratory items, <b>${CALREG.filter(c => c.own === 'inst').length}</b> plant instruments`, 'Each record keeps the certificate number and who calibrated'], 'iso17025-calibration', r17025)}
+      </div><p class="muted" style="font-size:12px">Each report is generated from the signed records; nothing is typed by hand before an audit.</p>`;
+  }
+  $('#view').innerHTML = `<div class="chips iso-tabs" role="tablist">${tabs.map(([k, t, s]) => `<button type="button" data-tab="${k}" aria-pressed="${isoTab === k}">${t} <span class="muted" style="font-size:11px">${s}</span></button>`).join('')}</div>${body}`;
+  $('#view').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { isoTab = b.dataset.tab; rIso(); });
+  $('#view').querySelectorAll('[data-open]').forEach(r => r.onclick = () => go('orders', +r.dataset.open));
+  $('#view').querySelectorAll('[data-cal]').forEach(b => b.onclick = () => {
+    const c = CALREG.find(x => x.tag === b.dataset.cal);
+    $('#calform').innerHTML = `<div class="card action" style="margin:14px 0"><h3>Record calibration · ${c.tag} <span>${esc(c.type)}</span></h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><div class="field"><label for="c_d">Calibration date</label><input type="date" id="c_d" value="${new Date().toISOString().slice(0, 10)}"></div>
+      <div class="field"><label for="c_n">Certificate number</label><input type="text" id="c_n" placeholder="e.g. CAL-2026-0412"></div>
+      <div class="field"><span class="label">Result</span>${ckGroup('c_r', ['Pass', 'Adjusted and passed', 'Fail'], 'radio', 'Pass')}</div></div>
+      ${signBlock()}<button class="btn" id="c_go">Sign calibration record</button></div>`;
+    $('#calform').scrollIntoView({ behavior: 'smooth' });
+    $('#c_go').onclick = () => { const n = $('#c_n').value.trim(); if (n.length < 4) { $('#aerr').textContent = 'Enter the certificate number.'; $('#aerr').hidden = false; return; }
+      const r = rv('c_r'); if (r === 'Fail') { $('#aerr').textContent = 'A failed instrument must be taken out of service: raise a CMO from its equipment page.'; $('#aerr').hidden = false; return; }
+      c.last = new Date($('#c_d').value + 'T12:00').getTime(); c.cert = n; c.log.push(sigMe(Date.now(), `Calibration recorded (${r})`)); toast(`${c.tag} calibrated; next due ${fmtD(calDue(c))}.`); rIso(); };
+  });
+}
+
 /* ----- new MOC (from equipment page or work orders) ----- */
 function openMocForm(holder, tag) {
   const p = tag ? byTag(tag) : null;
@@ -774,7 +870,7 @@ function pmRows() {
 }
 
 /* ===================== routing ===================== */
-const VIEWS = { overview: 'Overview', orders: 'Work Orders', shutdown: 'Shutdown List', pm: 'PM Schedule', assets: 'Assets', scan: 'Scan QR', roles: 'Roles & Delegation' };
+const VIEWS = { overview: 'Overview', orders: 'Work Orders', shutdown: 'Shutdown List', pm: 'PM Schedule', assets: 'Assets', scan: 'Scan QR', roles: 'Roles & Delegation', iso: 'ISO & Compliance' };
 let view = 'overview', sub = null;
 function go(v, s) { view = VIEWS[v] ? v : 'overview'; sub = s || null; if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view); render(); }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v !== view) { view = VIEWS[v] ? v : 'overview'; sub = null; render(); } });
@@ -783,7 +879,7 @@ function render() {
   document.querySelectorAll('nav.side a').forEach(a => { if (a.dataset.v !== view) a.removeAttribute('aria-current'); });
   $('#title').textContent = VIEWS[view];
   refreshBadges();
-  refreshOnb(); ({ overview: rOverview, orders: rOrders, shutdown: rShutdown, pm: rPM, assets: rAssets, scan: rScan, roles: rRoles })[view]();
+  refreshOnb(); ({ overview: rOverview, orders: rOrders, shutdown: rShutdown, pm: rPM, assets: rAssets, scan: rScan, roles: rRoles, iso: rIso })[view]();
   window.scrollTo(0, 0);
 }
 
